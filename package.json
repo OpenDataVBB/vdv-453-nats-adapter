@@ -10,7 +10,8 @@
 	},
 	"files": [
 		"cli.js",
-		"index.js"
+		"index.js",
+		"lib"
 	],
 	"keywords": [
 		"vdv 453",
@@ -33,6 +34,7 @@
 	},
 	"dependencies": {
 		"luxon": "^3.4.4",
+		"nats": "^2.22.0",
 		"vdv-453-client": "^1.0.0"
 	},
 	"devDependencies": {

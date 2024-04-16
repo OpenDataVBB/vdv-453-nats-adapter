@@ -1,5 +1,6 @@
 import {ok} from 'node:assert'
 import {createClient} from 'vdv-453-client'
+import {connectToNats, JSONCodec} from './lib/nats.js'
 
 const sendVdv453DataToNats = async (cfg, opt = {}) => {
 	const {
@@ -25,8 +26,10 @@ const sendVdv453DataToNats = async (cfg, opt = {}) => {
 
 	const {
 		vdv453ClientOpts,
+		natsOpts,
 	} = {
 		vdv453ClientOpts: {},
+		natsOpts: {},
 		...opt,
 	}
 
@@ -47,6 +50,14 @@ const sendVdv453DataToNats = async (cfg, opt = {}) => {
 	})
 	logger.info(`listening on port ${port}`)
 
+	const {
+		natsClient,
+	} = await connectToNats({
+		logger,
+	}, natsOpts)
+	const natsJson = JSONCodec()
+	// todo: warn-log publish failures?
+
 	const subscribeToAUS = (expires) => {
 		let aboId = null
 		// todo: support `expires` value of `'never'`/`Infinity`, re-subscribing continuously?
@@ -58,7 +69,16 @@ const sendVdv453DataToNats = async (cfg, opt = {}) => {
 
 			// todo: process other AUSNachricht children
 			client.data.on('aus:IstFahrt', (istFahrt) => {
-				// todo
+				// todo: pick a better topic, e.g. with these fields:
+				// - istFahrt.LinienID or istFahrt.LinienText
+				// - istFahrt.RichtungsID
+				// - istFahrt.FahrtID?.FahrtBezeichner
+				const topic = `aus.istfahrt`
+				logger.trace({
+					topic,
+					istFahrt,
+				}, 'publishing AUS IstFahrt to NATS')
+				natsClient.publish(topic, natsJson.encode(istFahrt))
 			})
 		}
 
