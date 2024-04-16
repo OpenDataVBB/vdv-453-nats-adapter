@@ -1,0 +1,46 @@
+{
+	"name": "vdv-453-nats-adapter",
+	"description": "Sends realtime public transport data from a VDV-453/VDV-454 API to a NATS message broker.",
+	"version": "1.0.0",
+	"preferGlobal": true,
+	"type": "module",
+	"main": "index.js",
+	"bin": {
+		"send-vdv-453-data-to-nats": "./cli.js"
+	},
+	"files": [
+		"cli.js",
+		"index.js"
+	],
+	"keywords": [
+		"vdv 453",
+		"vdv 454",
+		"realtime",
+		"public transport",
+		"transit",
+		"nats"
+	],
+	"author": "Jannis R <mail@jannisr.de>",
+	"homepage": "https://github.com/derhuerst/vdv-453-nats-adapter",
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/derhuerst/vdv-453-nats-adapter.git"
+	},
+	"bugs": "https://github.com/derhuerst/vdv-453-nats-adapter/issues",
+	"license": "ISC",
+	"engines": {
+		"node": ">=20"
+	},
+	"dependencies": {
+	},
+	"devDependencies": {
+		"@eslint/js": "^9.0.0",
+		"eslint": "^9.0.0",
+		"globals": "^15.0.0"
+	},
+	"scripts": {
+		"test": "./test/index.sh",
+		"lint": "eslint .",
+		"prepublishOnly": "npm run lint && npm test"
+	}
+}
