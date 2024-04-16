@@ -29,6 +29,9 @@ const {
 			type: 'string',
 			short: 'e',
 		},
+		'expires': {
+			type: 'string',
+		},
 	},
 	allowPositionals: true,
 })
@@ -50,6 +53,9 @@ Options:
 	--port                    -p  Port to listen on. VDV-453 requires the client to run an
 	                              HTTP server that the VDV-453 API can call.
 	                              Default: $PORT, otherwise 3000
+    --expires                     Set the subscription's expiry date & time. Must be an
+                                  ISO 8601 date+time string or a UNIX epoch/timestamp.
+                                  Default: now + 1h
 Exit Codes:
 	1 – generic and/or unexpected error
 	2 – operation canceled
@@ -65,6 +71,7 @@ if (flags.version) {
 	process.exit(0)
 }
 
+import {DateTime, SystemZone} from 'luxon'
 import {Vdv453ApiError} from 'vdv-453-client'
 import {sendVdv453DataToNats} from './index.js'
 
@@ -108,6 +115,18 @@ if ('port' in flags) {
 	cfg.port = parseInt(process.env.PORT)
 } else {
 	cfg.port = 3000
+}
+
+if ('expires' in flags) {
+	if (/^\d+$/.test(flags.expires)) { // UNIX epoch/timestamp
+		subscriptionOpts.expires = parseInt(flags.expires)
+	} else {
+		const expires = DateTime.fromISO(flags.expires, {setZone: true})
+		if (expires.zone instanceof SystemZone) {
+			abortWithError('--expires ISO 8601 must specify a time zone (offset)')
+		}
+		subscriptionOpts.expires = expires.toUnixInteger()
+	}
 }
 
 cfg.subscriptions = [

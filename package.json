@@ -32,6 +32,7 @@
 		"node": ">=20"
 	},
 	"dependencies": {
+		"luxon": "^3.4.4",
 		"vdv-453-client": "^1.0.0"
 	},
 	"devDependencies": {

@@ -16,8 +16,11 @@ const sendVdv453DataToNats = async (cfg, opt = {}) => {
 	for (let i = 0; i < subscriptions.length; i++) {
 		const {
 			service,
+			expires,
 		} = subscriptions[i]
 		ok(service, `invalid/empty cfg.subscriptions[${i}].service`)
+		// todo: handle BigInt?
+		ok(Number.isInteger(expires), `cfg.subscriptions[${i}].expires must be a UNIX epoch/timestamp`)
 	}
 
 	const {
@@ -44,10 +47,11 @@ const sendVdv453DataToNats = async (cfg, opt = {}) => {
 	})
 	logger.info(`listening on port ${port}`)
 
-	const subscribeToAUS = () => {
+	const subscribeToAUS = (expires) => {
 		let aboId = null
+		// todo: support `expires` value of `'never'`/`Infinity`, re-subscribing continuously?
 		const startPromise = client.ausSubscribe({
-			expiresAt: Date.now() + 10 * 60 * 1000, // 10m from now, vdv-453-client uses milliseconds
+			expiresAt: expires * 1000, // vdv-453-client uses milliseconds
 		})
 		.then(({aboId: _aboId}) => {
 			aboId = _aboId
@@ -80,12 +84,13 @@ const sendVdv453DataToNats = async (cfg, opt = {}) => {
 	for (const subscription of subscriptions) {
 		const {
 			service,
+			expires,
 		} = subscription
 		if (subscription.service === 'AUS') {
 			const {
 				startPromise,
 				stopTask,
-			} = subscribeToAUS()
+			} = subscribeToAUS(expires)
 			startPromises.push(startPromise)
 			stopTasks.push(stopTask)
 		} else {
