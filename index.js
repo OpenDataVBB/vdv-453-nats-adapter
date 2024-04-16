@@ -47,11 +47,12 @@ const sendVdv453DataToNats = async (cfg, opt = {}) => {
 	})
 	logger.info(`listening on port ${port}`)
 
-	const subscribeToAUS = () => {
+	const subscribeToAUS = (expires) => {
 		let aboId = null
+		// todo: support `expires` value of `'never'`/`Infinity`, re-subscribing continuously?
 		const startTask = async () => {
 			const {aboId: _aboId} = await client.ausSubscribe({
-				expiresAt: Date.now() + 10 * 60 * 1000, // 10m from now, vdv-453-client uses milliseconds
+				expiresAt: expires * 1000, // vdv-453-client uses milliseconds
 			})
 			aboId = _aboId
 
