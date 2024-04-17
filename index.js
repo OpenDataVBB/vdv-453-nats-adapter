@@ -69,11 +69,45 @@ const sendVdv453DataToNats = async (cfg, opt = {}) => {
 
 			// todo: process other AUSNachricht children
 			client.data.on('aus:IstFahrt', (istFahrt) => {
-				// todo: pick a better topic, e.g. with these fields:
-				// - istFahrt.LinienID or istFahrt.LinienText
-				// - istFahrt.RichtungsID
-				// - istFahrt.FahrtID?.FahrtBezeichner
-				const topic = `aus.istfahrt`
+				const emptySegment = '_'
+				// > Recommended characters: `a` to `z`, `A` to `Z` and `0` to `9` (names […] cannot contain whitespace).
+				// > Special characters: The period `.` and `*` and also `>`.
+				// Note: By mapping IDs with non-recommended characters to `_`, we accept a low chance of ID collisions here, e.g. between `foo.bar >baz` and `foo_bar__baz`.
+				// todo: consider replacing only special/unsafe characters (`.`/`*`/`>`/` `)
+				const escapeTopicSegment = id => id.replace(/[^a-zA-Z0-9]/g, '_')
+
+				const {
+					LinienID: linienId,
+					LinienText: linienText,
+					RichtungsID: richtungsId,
+					RichtungsText: richtungsText,
+				} = istFahrt
+				const {
+					FahrtBezeichner: fahrtBezeichner,
+					Betriebstag: betriebstag,
+				} = istFahrt.FahrtID || {}
+
+				// We make up a hierarchical topic `aus.istfahrt.$linie.$richtung.$fahrt` that allows consumers to pre-filter.
+				// With some IstFahrts some IDs are missing, so we use the test equivalents as fallbacks.
+				const linieSegment = linienId
+					? `id:${escapeTopicSegment(linienId)}`
+					: (linienText
+						// todo: add configurable text normalization? e.g. Unicode -> ASCII, lower case
+						? `text:${escapeTopicSegment(linienText)}`
+						: emptySegment
+					)
+				const richtungSegment = richtungsId
+					? `id:${escapeTopicSegment(richtungsId)}`
+					: (richtungsText
+						// todo: add configurable text normalization? e.g. Unicode -> ASCII, lower case
+						? `text:${escapeTopicSegment(richtungsText)}`
+						: emptySegment
+					)
+				const fahrtSegment = fahrtBezeichner && betriebstag
+					? `id:${escapeTopicSegment(fahrtBezeichner)}:tag:${escapeTopicSegment(betriebstag)}`
+					: emptySegment
+				const topic = `aus.istfahrt.${linieSegment}.${richtungSegment}.${fahrtSegment}`
+
 				logger.trace({
 					topic,
 					istFahrt,
