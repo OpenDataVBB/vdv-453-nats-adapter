@@ -5,6 +5,7 @@ import {parseArgs} from 'node:util'
 // todo: use import assertions once they're supported by Node.js & ESLint
 // https://github.com/tc39/proposal-import-assertions
 import {createRequire} from 'node:module'
+import {PREFIX as NATS_CLIENT_NAME_PREFIX} from './lib/nats.js'
 const require = createRequire(import.meta.url)
 const pkg = require('./package.json')
 
@@ -32,6 +33,15 @@ const {
 		'expires': {
 			type: 'string',
 		},
+		'nats-servers': {
+			type: 'string',
+		},
+		'nats-user': {
+			type: 'string',
+		},
+		'nats-client-name': {
+			type: 'string',
+		},
 	},
 	allowPositionals: true,
 })
@@ -53,9 +63,15 @@ Options:
 	--port                    -p  Port to listen on. VDV-453 requires the client to run an
 	                              HTTP server that the VDV-453 API can call.
 	                              Default: $PORT, otherwise 3000
-    --expires                     Set the subscription's expiry date & time. Must be an
-                                  ISO 8601 date+time string or a UNIX epoch/timestamp.
-                                  Default: now + 1h
+	--expires                     Set the subscription's expiry date & time. Must be an
+	                              ISO 8601 date+time string or a UNIX epoch/timestamp.
+	                              Default: now + 1h
+	--nats-servers                NATS server(s) to connect to.
+	                              Default: $NATS_SERVERS
+	--nats-user                   User to use when authenticating with NATS server.
+	                              Default: $NATS_USER
+	--nats-client-name            Name identifying the NATS client among others.
+	                              Default: ${NATS_CLIENT_NAME_PREFIX}\${randomHex(4)}
 Exit Codes:
 	1 – generic and/or unexpected error
 	2 – operation canceled
@@ -87,6 +103,9 @@ const abortWithError = (err) => {
 
 const cfg = {}
 const subscriptionOpts = {}
+const opt = {
+	natsOpts: {},
+}
 
 const [service] = args
 if (typeof service !== 'string' || !service) {
@@ -129,6 +148,16 @@ if ('expires' in flags) {
 	}
 }
 
+if ('nats-servers' in flags) {
+	opt.natsOpts.servers = flags['nats-servers'].split(',')
+}
+if ('nats-user' in flags) {
+	opt.natsOpts.user = flags['nats-user']
+}
+if ('nats-client-name' in flags) {
+	opt.natsOpts.name = flags['nats-client-name']
+}
+
 cfg.subscriptions = [
 	{
 		...subscriptionOpts,
@@ -139,7 +168,7 @@ cfg.subscriptions = [
 // todo [breaking]: create pino logger here, pass it in?
 let stop = async () => {} // no-op
 try {
-	const _ = await sendVdv453DataToNats(cfg)
+	const _ = await sendVdv453DataToNats(cfg, opt)
 	stop = _.stop
 } catch (err) {
 	// todo: special handling for Vdv453HttpError too?
