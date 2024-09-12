@@ -21,13 +21,16 @@
 		"transit",
 		"nats"
 	],
-	"author": "Jannis R <mail@jannisr.de>",
-	"homepage": "https://github.com/derhuerst/vdv-453-nats-adapter",
+	"author": "Verkehrsverbund Berlin Brandenburg <info@vbb.de>",
+	"contributors": [
+		"Jannis R <mail@jannisr.de>"
+	],
+	"homepage": "https://github.com/OpenDataVBB/vdv-453-nats-adapter",
 	"repository": {
 		"type": "git",
-		"url": "git+https://github.com/derhuerst/vdv-453-nats-adapter.git"
+		"url": "git+https://github.com/OpenDataVBB/vdv-453-nats-adapter.git"
 	},
-	"bugs": "https://github.com/derhuerst/vdv-453-nats-adapter/issues",
+	"bugs": "https://github.com/OpenDataVBB/vdv-453-nats-adapter/issues",
 	"license": "ISC",
 	"engines": {
 		"node": ">=20"

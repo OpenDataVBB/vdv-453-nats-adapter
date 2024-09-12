@@ -20,8 +20,8 @@ WORKDIR /app
 
 LABEL org.opencontainers.image.title="vdv-453-nats-adapter"
 LABEL org.opencontainers.image.description="An HTTP API for Berlin & Brandenburg public transport."
-LABEL org.opencontainers.image.authors="Jannis R <mail@jannisr.de>"
-LABEL org.opencontainers.image.documentation="https://github.com/derhuerst/vbb-rest/tree/7"
+LABEL org.opencontainers.image.authors="Verkehrsverbund Berlin Brandenburg <info@vbb.de>"
+LABEL org.opencontainers.image.documentation="https://github.com/OpenDataVBB/vbb-rest/tree/7"
 
 # install dependencies
 COPY --from=builder /app/node_modules ./node_modules
