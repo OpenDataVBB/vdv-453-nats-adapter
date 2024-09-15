@@ -1,5 +1,6 @@
 import {ok} from 'node:assert'
 import {createClient} from 'vdv-453-client'
+import {kBestaetigungZst} from 'vdv-453-client/lib/symbols.js'
 import {connectToNats, JSONCodec} from './lib/nats.js'
 
 const sendVdv453DataToNats = async (cfg, opt = {}) => {
@@ -107,6 +108,9 @@ const sendVdv453DataToNats = async (cfg, opt = {}) => {
 					? `id:${escapeTopicSegment(fahrtBezeichner)}:tag:${escapeTopicSegment(betriebstag)}`
 					: emptySegment
 				const topic = `aus.istfahrt.${linieSegment}.${richtungSegment}.${fahrtSegment}`
+
+				// make unenumerable properties regular ones, so that they end up in the JSON
+				istFahrt['$BestaetigungZst'] = istFahrt[kBestaetigungZst]
 
 				logger.trace({
 					topic,
