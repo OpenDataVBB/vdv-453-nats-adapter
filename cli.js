@@ -30,6 +30,10 @@ const {
 			type: 'string',
 			short: 'e',
 		},
+		'port': {
+			type: 'string',
+			short: 'p',
+		},
 		'expires': {
 			type: 'string',
 		},
@@ -60,8 +64,8 @@ Options:
 	                              Default: $VDV_453_LEITSTELLE
 	--endpoint                -e  HTTP(S) URL of the VDV-453 API.
 	                              Default: $VDV_453_ENDPOINT
-	--port                    -p  Port to listen on. VDV-453 requires the client to run an
-	                              HTTP server that the VDV-453 API can call.
+	--port                    -p  Port to listen on. VDV-453 requires the *client* to run
+	                              an HTTP server that the VDV-453 API can call.
 	                              Default: $PORT, otherwise 3000
 	--expires                     Set the subscription's expiry date & time. Must be an
 	                              ISO 8601 date+time string or a UNIX epoch/timestamp.
