@@ -150,6 +150,9 @@ if ('expires' in flags) {
 		}
 		subscriptionOpts.expires = expires.toUnixInteger()
 	}
+} else {
+	// now + 1h
+	subscriptionOpts.expires = (Date.now() / 1000 | 0) + 60 * 60
 }
 
 if ('nats-servers' in flags) {
