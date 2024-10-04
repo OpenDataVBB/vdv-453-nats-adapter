@@ -1,6 +1,6 @@
 # vdv-453-nats-adapter
 
-**Sends realtime public transport data from a [VDV-453/VDV-454 API](https://www.vdv.de/i-d-s-downloads.aspx) to a [NATS message broker](https://docs.nats.io/)**, so that it can be easily consumed by other applications. Uses [`vdv-453-client`](https://github.com/derhuerst/vdv-453-client) underneath.
+**Sends realtime public transport data from a [VDV-453/VDV-454 API](https://www.vdv.de/i-d-s-downloads.aspx) to a [NATS message broker](https://docs.nats.io/)**, so that it can be easily consumed by other applications. Uses [`vdv-453-client`](https://github.com/OpenDataVBB/vdv-453-client) underneath.
 
 [![npm version](https://img.shields.io/npm/v/vdv-453-nats-adapter.svg)](https://www.npmjs.com/package/vdv-453-nats-adapter)
 ![ISC-licensed](https://img.shields.io/github/license/OpenDataVBB/vdv-453-nats-adapter.svg)
@@ -16,7 +16,7 @@ npm install -g vdv-453-nats-adapter
 
 ## Getting Started
 
-Please note the limitations imposed by the underlying library [`vdv-453-client`](https://github.com/derhuerst/vdv-453-client):
+Please note the limitations imposed by the underlying library [`vdv-453-client`](https://github.com/OpenDataVBB/vdv-453-client):
 
 > **A client for [VDV-453 v2.3.2b](https://web.archive.org/web/20231208122259/https://www.vdv.de/453v2.3.2-sds.pdf.pdfx?forced=false)/[VDV-454 v1.2.2](https://web.archive.org/web/20231208122259/https://www.vdv.de/454v1.2.2-sds.pdf.pdfx?forced=false) (from 2013) systems.** Can be used to connect to German public transport realtime data backends (*Datendrehscheiben*).
 > 
@@ -77,7 +77,7 @@ Examples:
 
 ## Related
 
-- [vdv-453-client](https://github.com/derhuerst/vdv-453-client) – A client for VDV-453/VDV-454 systems.
+- [vdv-453-client](https://github.com/OpenDataVBB/vdv-453-client) – A client for VDV-453/VDV-454 systems.
 
 
 ## Contributing
