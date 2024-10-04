@@ -6,11 +6,13 @@ import {connectToNats, JSONCodec} from './lib/nats.js'
 const sendVdv453DataToNats = async (cfg, opt = {}) => {
 	const {
 		leitstelle,
+		theirLeitstelle,
 		endpoint,
 		port,
 		subscriptions,
 	} = cfg
 	ok(leitstelle, 'missing/empty cfg.leitstelle')
+	ok(theirLeitstelle, 'missing/empty cfg.theirLeitstelle')
 	ok(endpoint, 'missing/empty cfg.endpoint')
 	ok(Number.isInteger(port), 'cfg.port must be an integer')
 	ok(Array.isArray(subscriptions), 'cfg.subscriptions must be an array')
@@ -37,6 +39,7 @@ const sendVdv453DataToNats = async (cfg, opt = {}) => {
 	const client = createClient({
 		...vdv453ClientOpts,
 		leitstelle,
+		theirLeitstelle,
 		endpoint,
 	})
 	const {

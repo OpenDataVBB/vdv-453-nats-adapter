@@ -26,6 +26,10 @@ const {
 			type: 'string',
 			short: 'l',
 		},
+		'their-leitstelle': {
+			type: 'string',
+			short: 'L',
+		},
 		'endpoint': {
 			type: 'string',
 			short: 'e',
@@ -62,6 +66,9 @@ Options:
 	                              client, a bit like an HTTP User-Agent. Must be agreed-
 	                              upon with the provider of the VDV-453 API.
 	                              Default: $VDV_453_LEITSTELLE
+	--their-leitstelle        -L  VDV-453 Leitstellenkennung of the server. Must be agreed-
+	                              upon with the provider of the VDV-453 API.
+	                              Default: $VDV_453_THEIR_LEITSTELLE
 	--endpoint                -e  HTTP(S) URL of the VDV-453 API.
 	                              Default: $VDV_453_ENDPOINT
 	--port                    -p  Port to listen on. VDV-453 requires the *client* to run
@@ -122,6 +129,13 @@ if ('leitstelle' in flags) {
 	cfg.leitstelle = process.env.VDV_453_LEITSTELLE
 } else {
 	abortWithError('missing/empty --leitstelle/-l/$VDV_453_LEITSTELLE')
+}
+if ('their-leitstelle' in flags) {
+	cfg.theirLeitstelle = flags['their-leitstelle']
+} else if ('VDV_453_THEIR_LEITSTELLE' in process.env) {
+	cfg.theirLeitstelle = process.env.VDV_453_THEIR_LEITSTELLE
+} else {
+	abortWithError('missing/empty --their-leitstelle/-L/$VDV_453_THEIR_LEITSTELLE')
 }
 
 if ('endpoint' in flags) {
