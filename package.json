@@ -38,7 +38,7 @@
 	"dependencies": {
 		"luxon": "^3.4.4",
 		"nats": "^2.22.0",
-		"vdv-453-client": "^2.0.0-alpha.0"
+		"vdv-453-client": "^2.0.0-alpha.2"
 	},
 	"devDependencies": {
 		"@eslint/js": "^9.0.0",
