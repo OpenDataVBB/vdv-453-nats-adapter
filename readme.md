@@ -88,6 +88,7 @@ The following *kinds* of metrics will be exported:
 - domain-specific metrics, e.g.
 	- the number of active subscriptions set up
 	- the number of `AUS` `IstFahrt`s retrieved per fetch
+	- the VDV API's `StartDienstZst`
 - [technical details about the Node.js process](https://github.com/siimon/prom-client/blob/c1d76c5d497ef803f6bd90c56c713c3fa811c3e0/README.md#default-metrics), e.g. the current state of garbage collection
 
 Refer to the [Grafana dashboard in VBB's deployment](https://github.com/OpenDataVBB/gtfs-rt-infrastructure/blob/cc920812506ae1b36962cd3453068ff199581392/lib/grafana/dashboards/gtfs-rt.json) for an example how to visualize `vdv-453-nats-adapter`'s metrics.

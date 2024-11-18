@@ -39,9 +39,11 @@ const sendVdv453DataToNats = async (cfg, opt = {}) => {
 	const {
 		vdv453ClientOpts,
 		natsOpts,
+		checkServerStatusInterval,
 	} = {
 		vdv453ClientOpts: {},
 		natsOpts: {},
+		checkServerStatusInterval: 10 * 1000, // milliseconds
 		...opt,
 	}
 
@@ -139,6 +141,17 @@ const sendVdv453DataToNats = async (cfg, opt = {}) => {
 	})
 	const trackLatestServerZst = (zst) => {
 		_updateGaugeWithIso8601Timestamp(latestServerZstSeconds, zst)
+	}
+	const serverStartDienstZstSeconds = new Gauge({
+		name: 'vdv_server_startdienstzst_seconds',
+		help: `The server's StatusAntwort.StartDienstZst (timestamp), as obtained from StatusAnfrage requests`,
+		registers: [metricsRegister],
+		labelNames: [
+			'service', // VDV-453/-454 service, e.g. AUS
+		],
+	})
+	const trackServerStartDienstZst = (service, zst) => {
+		_updateGaugeWithIso8601Timestamp(serverStartDienstZstSeconds, zst, {service})
 	}
 
 	// todo: nr of NATS messages sent & timestamp of latest message?
@@ -361,6 +374,39 @@ const sendVdv453DataToNats = async (cfg, opt = {}) => {
 		} else {
 			throw new Error(`invalid/unsupported service "${service}"`)
 		}
+	}
+
+	// fetch server status periodically
+	{
+		const checkAndResetTimer = async () => {
+			// setTimeout() handles neither async functions nor rejections, so we must catch errors here by ourselves.
+			try {
+				const {
+					startDienstZst,
+				} = await client.ausCheckServerStatus()
+				// todo: warn if status is not ok?
+
+				if (startDienstZst === null) {
+					logger.warn({
+						service: 'aus',
+					}, 'server did not provide a StatusAntwort.StartDienstZst')
+				} else {
+					trackServerStartDienstZst('aus', startDienstZst)
+				}
+			} catch (err) {
+				logger.warn({
+					err,
+				}, 'failed to check server status')
+			} finally {
+				checkTimer = setTimeout(checkAndResetTimer, checkServerStatusInterval)
+			}
+		}
+		const checkServerStatusInitialWait = Math.max(checkServerStatusInterval / 30, 2_000) // 2 seconds minimum
+		let checkTimer = setTimeout(checkAndResetTimer, checkServerStatusInitialWait)
+
+		stopTasks.push(() => {
+			clearTimeout(checkTimer)
+		})
 	}
 
 	// todo: stop successfully started subscriptions if one of these fails
