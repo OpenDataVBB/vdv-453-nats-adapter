@@ -154,7 +154,24 @@ const sendVdv453DataToNats = async (cfg, opt = {}) => {
 		_updateGaugeWithIso8601Timestamp(serverStartDienstZstSeconds, zst, {service})
 	}
 
-	// todo: nr of NATS messages sent & timestamp of latest message?
+	// NATS-related metrics
+	// Note: We mirror OpenDataVBB/gtfs-rt-feed's metrics here.
+	const natsNrOfMessagesSentTotal = new Counter({
+		name: 'nats_nr_of_msgs_sent_total',
+		help: 'number of messages sent to NATS',
+		registers: [metricsRegister],
+		labelNames: [
+			'topic_root', // first "segment" of the topic, e.g. `AUS` with `aus.istfahrt.foo.bar`
+		],
+	})
+	const natsLatestMessageSentTimestampSeconds = new Gauge({
+		name: 'nats_latest_msg_sent_timestamp_seconds',
+		help: 'when the latest message has been sent to NATS',
+		registers: [metricsRegister],
+		labelNames: [
+			'topic_root', // first "segment" of the topic, e.g. `AUS` with `aus.istfahrt.foo.bar`
+		],
+	})
 
 	const client = createClient({
 		...vdv453ClientOpts,
@@ -329,7 +346,13 @@ const sendVdv453DataToNats = async (cfg, opt = {}) => {
 					topic,
 					istFahrt,
 				}, 'publishing AUS IstFahrt to NATS')
+				const tSent = Date.now()
 				natsClient.publish(topic, natsJson.encode(istFahrt))
+
+				// We slice() to keep the cardinality low in case of a bug.
+				const topic_root = (topic.split('.')[0] || '').slice(0, 7)
+				natsNrOfMessagesSentTotal.inc({topic_root})
+				natsLatestMessageSentTimestampSeconds.set({topic_root}, tSent)
 			})
 		}
 
