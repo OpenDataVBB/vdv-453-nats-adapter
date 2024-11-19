@@ -4,7 +4,10 @@ import {
 	Counter,
 	Summary,
 } from 'prom-client'
-import {createClient} from 'vdv-453-client'
+import {
+	createClient,
+	Vdv453ApiError,
+} from 'vdv-453-client'
 import {
 	createMetricsServer,
 	register as metricsRegister,
@@ -43,7 +46,7 @@ const sendVdv453DataToNats = async (cfg, opt = {}) => {
 	} = {
 		vdv453ClientOpts: {},
 		natsOpts: {},
-		checkServerStatusInterval: 10 * 1000, // milliseconds
+		checkServerStatusInterval: 5 * 1000, // milliseconds
 		...opt,
 	}
 
@@ -71,6 +74,21 @@ const sendVdv453DataToNats = async (cfg, opt = {}) => {
 			'service', // VDV-453/-454 service, e.g. AUS
 		],
 	})
+	const vdvStatusAntwortOkTimestampSeconds = new Gauge({
+		name: 'vdv_statusantwort_ok_timestamp_seconds',
+		help: 'when the VDV-453 server has last reported as (not) ok via StatusAntwort',
+		registers: [metricsRegister],
+		labelNames: [
+			'service', // VDV-453/-454 service, e.g. AUS
+			'status', // 1 = ok, 0 = not ok
+		]
+	})
+	const trackVdvStatusAntwortOk = (svc, isOk, ts = Date.now()) => {
+		vdvStatusAntwortOkTimestampSeconds.set({
+			service: svc,
+			status: isOk ? '1' : '0',
+		}, ts / 1000)
+	}
 	const vdvDatenAbrufenAntwortsTotal = new Counter({
 		name: 'vdv_datenabrufenantworts_total',
 		help: 'number of VDV-453 DatenAbrufenAntwort responses from the server',
@@ -197,6 +215,12 @@ const sendVdv453DataToNats = async (cfg, opt = {}) => {
 			}
 		},
 		onStatusAntwort: (svc, statusAntwort) => {
+			let ts = statusAntwort.Status?.$?.Zst && Date.parse(statusAntwort.Status?.$?.Zst)
+			if (!Number.isFinite(ts)) {
+				ts = Date.now()
+			}
+			trackVdvStatusAntwortOk(svc, true, ts)
+
 			vdvStatusAntwortsTotal.inc({
 				service: svc,
 			})
@@ -402,6 +426,8 @@ const sendVdv453DataToNats = async (cfg, opt = {}) => {
 	// fetch server status periodically
 	{
 		const checkAndResetTimer = async () => {
+			const svc = 'aus'
+
 			// setTimeout() handles neither async functions nor rejections, so we must catch errors here by ourselves.
 			try {
 				const {
@@ -414,12 +440,21 @@ const sendVdv453DataToNats = async (cfg, opt = {}) => {
 						service: 'aus',
 					}, 'server did not provide a StatusAntwort.StartDienstZst')
 				} else {
-					trackServerStartDienstZst('aus', startDienstZst)
+					trackServerStartDienstZst(svc, startDienstZst)
 				}
 			} catch (err) {
 				logger.warn({
 					err,
 				}, 'failed to check server status')
+
+				// todo: check for the right error message
+				if ((err instanceof Vdv453ApiError) && err.statusAntwort) { // server seems not ok
+					let ts = err.statusAntwort.Status?.$?.Zst && Date.parse(err.statusAntwort.Status?.$?.Zst)
+					if (!Number.isFinite(ts)) {
+						ts = Date.now()
+					}
+					trackVdvStatusAntwortOk(svc, false, ts)
+				}
 			} finally {
 				checkTimer = setTimeout(checkAndResetTimer, checkServerStatusInterval)
 			}
