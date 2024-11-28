@@ -29,7 +29,7 @@ COPY --from=builder /app/node_modules ./node_modules
 # add source code
 ADD . /app
 
-# CLI some test
+# CLI smoke test
 RUN ./cli.js --help >/dev/null
 
 ENTRYPOINT [ "./cli.js"]

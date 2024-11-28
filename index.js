@@ -76,6 +76,10 @@ const sendVdv453DataToNats = async (cfg, opt = {}) => {
 			'service', // VDV-453/-454 service, e.g. AUS
 		],
 	})
+	// todo: switch back to a regular Gauge but set the measurement timestamp manually, once that's possible again?
+	// see also https://pkg.go.dev/github.com/prometheus/client_golang/prometheus#NewMetricWithTimestamp
+	// see also https://github.com/siimon/prom-client/issues/177
+	// see also https://github.com/siimon/prom-client/issues/590
 	const vdvStatusAntwortOkTimestampSeconds = new Gauge({
 		name: 'vdv_statusantwort_ok_timestamp_seconds',
 		help: 'when the VDV-453 server has last reported as (not) ok via StatusAntwort',

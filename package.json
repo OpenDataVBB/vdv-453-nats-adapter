@@ -1,7 +1,7 @@
 {
 	"name": "vdv-453-nats-adapter",
 	"description": "Sends realtime public transport data from a VDV-453/VDV-454 API to a NATS message broker.",
-	"version": "1.0.0",
+	"version": "1.1.0",
 	"preferGlobal": true,
 	"type": "module",
 	"main": "index.js",
