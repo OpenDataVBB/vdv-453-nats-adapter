@@ -63,6 +63,11 @@ Options:
 	--expires                     Set the subscription's expiry date & time. Must be an
 	                              ISO 8601 date+time string or a UNIX epoch/timestamp.
 	                              Default: now + 1h
+	--aus-manual-fetch-interval   How often to *manually* fetch the data of an AUS
+	                              subscription, in milliseconds.
+	                              Usually, the server should notify the client about new
+	                              data, but some may not.
+	                              Default: 30_000
 	--nats-servers                NATS server(s) to connect to.
 	                              Default: $NATS_SERVERS
 	--nats-user                   User to use when authenticating with NATS server.

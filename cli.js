@@ -41,6 +41,9 @@ const {
 		'expires': {
 			type: 'string',
 		},
+		'aus-manual-fetch-interval': {
+			type: 'string',
+		},
 		'nats-servers': {
 			type: 'string',
 		},
@@ -77,6 +80,11 @@ Options:
 	--expires                     Set the subscription's expiry date & time. Must be an
 	                              ISO 8601 date+time string or a UNIX epoch/timestamp.
 	                              Default: now + 1h
+	--aus-manual-fetch-interval   How often to *manually* fetch the data of an AUS
+	                              subscription, in milliseconds.
+	                              Usually, the server should notify the client about new
+	                              data, but some may not.
+	                              Default: 30_000
 	--nats-servers                NATS server(s) to connect to.
 	                              Default: $NATS_SERVERS
 	--nats-user                   User to use when authenticating with NATS server.
@@ -167,6 +175,13 @@ if ('expires' in flags) {
 } else {
 	// now + 1h
 	subscriptionOpts.expires = (Date.now() / 1000 | 0) + 60 * 60
+}
+
+if ('aus-manual-fetch-interval' in flags) {
+	opt.ausManualFetchInterval = parseInt(flags.expires)
+	if (!Number.isInteger(opt.ausManualFetchInterval)) {
+			abortWithError('--aus-manual-fetch-interval must be an integer')
+	}
 }
 
 if ('nats-servers' in flags) {

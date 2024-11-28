@@ -43,10 +43,12 @@ const sendVdv453DataToNats = async (cfg, opt = {}) => {
 		vdv453ClientOpts,
 		natsOpts,
 		checkServerStatusInterval,
+		ausManualFetchInterval,
 	} = {
 		vdv453ClientOpts: {},
 		natsOpts: {},
 		checkServerStatusInterval: 5 * 1000, // milliseconds
+		ausManualFetchInterval: 30 * 1000, // 30 seconds, vdv-453-client's default
 		...opt,
 	}
 
@@ -315,6 +317,7 @@ const sendVdv453DataToNats = async (cfg, opt = {}) => {
 		const startTask = async () => {
 			const {aboId: _aboId} = await client.ausSubscribe({
 				expiresAt: expires * 1000, // vdv-453-client uses milliseconds
+				fetchInterval: ausManualFetchInterval,
 			})
 			aboId = _aboId
 
