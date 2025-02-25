@@ -261,6 +261,10 @@ const sendVdv453DataToNats = async (cfg, opt = {}) => {
 			// todo: track other parameters?
 			trackNrOfSubscriptions(svc, subStats.nrOfSubscriptions)
 		},
+		onSubscriptionsResetByServer: async (svc, subsStats) => {
+			// todo: debug-log?
+			await subscribe()
+		},
 		onDatenAbrufenAntwort: (svc, {datensatzAlle, weitereDaten, itLevel, bestaetigung}) => {
 			vdvDatenAbrufenAntwortsTotal.inc({
 				service: svc,
@@ -406,32 +410,12 @@ const sendVdv453DataToNats = async (cfg, opt = {}) => {
 	await metricsServer.start()
 	logger.info(`serving Prometheus metrics on port ${metricsServer.address().port}`)
 
-	const startPromises = []
 	const stopTasks = []
 
 	const stop = async () => {
 		await Promise.all(stopTasks.map(task => task()))
 		client.httpServer.close()
 		metricsServer.close()
-	}
-
-	{
-		for (const subscription of subscriptions) {
-			const {
-				service,
-				expires,
-			} = subscription
-			if (subscription.service === 'AUS') {
-				const {
-					startPromise,
-					stopTask,
-				} = subscribeToAUS(expires)
-				startPromises.push(startPromise)
-				stopTasks.push(stopTask)
-			} else {
-				throw new Error(`invalid/unsupported service "${service}"`)
-			}
-		}
 	}
 
 	// fetch server status periodically
@@ -478,8 +462,41 @@ const sendVdv453DataToNats = async (cfg, opt = {}) => {
 		})
 	}
 
-	// todo: stop successfully started subscriptions if one of these fails
-	await Promise.all(startPromises)
+	for (const subscription of subscriptions) {
+		const {
+			service,
+		} = subscription
+		if (service !== 'AUS') {
+			throw new Error(`invalid/unsupported service "${service}"`)
+		}
+	}
+
+	// (re-)create all subscriptions specified by `subscriptions`
+	const subscribe = async () => {
+		logger.info({
+			subscriptions,
+		}, '(re)creating all subscriptions')
+
+		const startPromises = []
+		for (const subscription of subscriptions) {
+			const {
+				service,
+				expires,
+			} = subscription
+			if (service === 'AUS') {
+				const {
+					startPromise,
+					stopTask,
+				} = subscribeToAUS(expires)
+				startPromises.push(startPromise)
+				stopTasks.push(stopTask)
+			}
+		}
+		// todo: cancel successfully created subscriptions & exit if one of these fails
+		await Promise.all(startPromises)
+	}
+
+	await subscribe()
 
 	return {
 		logger,
