@@ -1,3 +1,4 @@
+import {createHash} from 'node:crypto'
 import {ok} from 'node:assert'
 import {
 	Gauge,
@@ -168,7 +169,7 @@ const sendVdv453DataToNats = async (cfg, opt = {}) => {
 	}
 	const serverStartDienstZstSeconds = new Gauge({
 		name: 'vdv_server_startdienstzst_seconds',
-		help: `The server's StatusAntwort.StartDienstZst (timestamp), as obtained from StatusAnfrage requests`,
+		help: `The server's StatusAntwort.StartDienstZst (timestamp), as obtained from StatusAntwort responses`,
 		registers: [metricsRegister],
 		labelNames: [
 			'service', // VDV-453/-454 service, e.g. AUS
@@ -176,6 +177,21 @@ const sendVdv453DataToNats = async (cfg, opt = {}) => {
 	})
 	const trackServerStartDienstZst = (service, zst) => {
 		_updateGaugeWithIso8601Timestamp(serverStartDienstZstSeconds, zst, {service})
+	}
+	const serverDatenVersionIDSeconds = new Gauge({
+		name: 'vdv_server_datenversionid',
+		help: `The server's StatusAntwort.DatenVersionID, as obtained from StatusAntwort responses. A timestamp if it is in ISO 8601 format, otherwise a hash.`,
+		registers: [metricsRegister],
+		labelNames: [
+			'service', // VDV-453/-454 service, e.g. AUS
+		],
+	})
+	const trackServerDatenVersionID = (service, datenVersionID) => {
+		const parsedAsTimestamp = Date.parse(datenVersionID)
+		const mappedDatenVersionID = Number.isInteger(parsedAsTimestamp)
+			? parsedAsTimestamp / 1000
+			: createHash('sha1').update(datenVersionID).digest().readUInt32LE() // 4 bytes should be enough
+		serverDatenVersionIDSeconds.set({service}, mappedDatenVersionID)
 	}
 
 	// NATS-related metrics
@@ -233,7 +249,6 @@ const sendVdv453DataToNats = async (cfg, opt = {}) => {
 			if (statusAntwort.Status?.$?.Zst) {
 				trackLatestServerZst(statusAntwort.Status?.$?.Zst)
 			}
-			// todo: track `statusAntwort.DatenVersionID.$text`?
 		},
 		onSubscribed: (svc, {aboId, aboSubTag, aboSubChildren}, bestaetigung, subStats) => {
 			// todo: track even itself?
@@ -422,20 +437,31 @@ const sendVdv453DataToNats = async (cfg, opt = {}) => {
 	{
 		const checkAndResetTimer = async () => {
 			const svc = 'aus'
+			const logCtx = {
+				service: svc,
+			}
 
 			// setTimeout() handles neither async functions nor rejections, so we must catch errors here by ourselves.
 			try {
 				const {
 					startDienstZst,
+					datenVersionID,
 				} = await client.ausCheckServerStatus()
 				// todo: warn if status is not ok?
 
 				if (startDienstZst === null) {
 					logger.warn({
-						service: 'aus',
+						...logCtx,
 					}, 'server did not provide a StatusAntwort.StartDienstZst')
 				} else {
 					trackServerStartDienstZst(svc, startDienstZst)
+				}
+				if (datenVersionID === null) {
+					logger.warn({
+						...logCtx,
+					}, 'server did not provide a StatusAntwort.DatenVersionID')
+				} else {
+					trackServerDatenVersionID(svc, datenVersionID)
 				}
 			} catch (err) {
 				logger.warn({
