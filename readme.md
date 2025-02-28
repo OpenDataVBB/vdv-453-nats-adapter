@@ -8,7 +8,7 @@
 ## Installation
 
 ```shell
-npm install -g OpenDataVBB/vdv-453-nats-adapter
+npm install -g vdv-453-nats-adapter
 ```
 
 
@@ -16,7 +16,7 @@ npm install -g OpenDataVBB/vdv-453-nats-adapter
 
 Please note the limitations imposed by the underlying library [`vdv-453-client`](https://github.com/OpenDataVBB/vdv-453-client):
 
-> **A client for [VDV-453 v2.3.2b](https://web.archive.org/web/20231208122259/https://www.vdv.de/453v2.3.2-sds.pdf.pdfx?forced=false)/[VDV-454 v1.2.2](https://web.archive.org/web/20231208122259/https://www.vdv.de/454v1.2.2-sds.pdf.pdfx?forced=false) (from 2013) systems.** Can be used to connect to German public transport realtime data backends (*Datendrehscheiben*).
+> A JavaScript **client for realtime public transport data systems following the [VDV-453 v2.4.0](https://web.archive.org/web/20240221234602/https://www.vdv.de/453v24-sds.pdfx?forced=false)/[VDV-454 v2.0](https://web.archive.org/web/20240222010651/https://www.vdv.de/454v2.0-sd.pdfx?forced=false) specs** (from 2015). Such systems are widespread in Germany, being the realtime data backends (*Datendrehscheiben*) of many regional transit authorities/associations.
 > 
 > *Note:* This client supports neither the latest 2.x spec versions ([VDV-453 v2.6.1](https://www.vdv.de/vdv-schrift-453-v2.6.1-de.pdfx?forced=true)/[VDV-454 v2.2.1](https://www.vdv.de/454v2.2.1-sd.pdfx?forced=true)) nor the latest 3.x spec versions ([VDV-453 v3.0](https://www.vdv.de/downloads/4337/453v3.0%20SDS/forced)/[VDV-454 v3.0](https://www.vdv.de/downloads/4336/454v3.0%20SDS/forced)).
 
@@ -35,7 +35,9 @@ send-vdv-453-data-to-nats \
 	# your Leitstellenkennung, as agreed-upon between the VDV-453 API's operator and you
 	--leitstelle '…' \
 	# their Leitstellenkennung, as agreed-upon between the VDV-453 API's operator and you
-	--their-leitstelle '…'
+	--their-leitstelle '…' \
+	# VDV-453/VDV-454 service
+	'…'
 ```
 
 
@@ -100,7 +102,7 @@ The following *kinds* of metrics will be exported:
 	- the VDV API's `StartDienstZst`
 - [technical details about the Node.js process](https://github.com/siimon/prom-client/blob/c1d76c5d497ef803f6bd90c56c713c3fa811c3e0/README.md#default-metrics), e.g. the current state of garbage collection
 
-Refer to the [Grafana dashboard in VBB's deployment](https://github.com/OpenDataVBB/gtfs-rt-infrastructure/blob/cc920812506ae1b36962cd3453068ff199581392/lib/grafana/dashboards/gtfs-rt.json) for an example how to visualize `vdv-453-nats-adapter`'s metrics.
+Refer to the [Grafana dashboard in VBB's deployment](https://github.com/OpenDataVBB/gtfs-rt-infrastructure/blob/2eaca379519a90540ad7443635b6aec3ff55f4a8/lib/grafana/dashboards/gtfs-rt.json) for an example how to visualize `vdv-453-nats-adapter`'s metrics.
 
 
 ## Related
