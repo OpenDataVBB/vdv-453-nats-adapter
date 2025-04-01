@@ -20,6 +20,8 @@ Please note the limitations imposed by the underlying library [`vdv-453-client`]
 > 
 > *Note:* This client supports neither the latest 2.x spec versions ([VDV-453 v2.6.1](https://www.vdv.de/vdv-schrift-453-v2.6.1-de.pdfx?forced=true)/[VDV-454 v2.2.1](https://www.vdv.de/454v2.2.1-sd.pdfx?forced=true)) nor the latest 3.x spec versions ([VDV-453 v3.0](https://www.vdv.de/downloads/4337/453v3.0%20SDS/forced)/[VDV-454 v3.0](https://www.vdv.de/downloads/4336/454v3.0%20SDS/forced)).
 
+### Leitstellenkennung
+
 With the organisation providing the VDV 453 API, you will have to agree upon a *Leitstellenkennung* you'll use, which is a bit like an HTTP User-Agent:
 
 > 6.1.3 Leitstellenkennung
@@ -39,6 +41,10 @@ send-vdv-453-data-to-nats \
 	# VDV-453/VDV-454 service
 	'…'
 ```
+
+### Redis
+
+`vdv-453-nats-adapter` persists its state (active subscriptions, etc.) in a Redis instance. It uses [`ioredis`](https://npmjs.com/package/ioredis), please refer to its readme for more information about how to configure the access to Redis.
 
 
 ## Usage

@@ -9,6 +9,7 @@ import {
 	createClient,
 	Vdv453ApiError,
 } from 'vdv-453-client'
+import {openRedisStorage} from './lib/redis-store.js'
 import {
 	createMetricsServer,
 	register as metricsRegister,
@@ -213,12 +214,13 @@ const sendVdv453DataToNats = async (cfg, opt = {}) => {
 		],
 	})
 
-	const client = createClient({
+	const client = await createClient({
 		...vdv453ClientOpts,
 		leitstelle,
 		theirLeitstelle,
 		endpoint,
 	}, {
+		openStorage: openRedisStorage,
 		// use hooks to expose metrics
 		onDatenBereitAnfrage: (svc, datenBereitAnfrage) => {
 			vdvDatenBereitAnfragesTotal.inc({
@@ -250,7 +252,7 @@ const sendVdv453DataToNats = async (cfg, opt = {}) => {
 				trackLatestServerZst(statusAntwort.Status?.$?.Zst)
 			}
 		},
-		onSubscribed: (svc, {aboId, aboSubTag, aboSubChildren}, bestaetigung, subStats) => {
+		onSubscriptionCreated: (svc, {aboId, expiresAt, aboSubTag, aboSubChildren}, bestaetigung, subStats) => {
 			// todo: track even itself?
 			// todo: track other parameters?
 			trackNrOfSubscriptions(svc, subStats.nrOfSubscriptions)
