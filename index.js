@@ -214,6 +214,8 @@ const sendVdv453DataToNats = async (cfg, opt = {}) => {
 		],
 	})
 
+	const activeSubscriptions = []
+
 	const client = await createClient({
 		...vdv453ClientOpts,
 		leitstelle,
@@ -259,6 +261,10 @@ const sendVdv453DataToNats = async (cfg, opt = {}) => {
 			if (bestaetigung.$?.Zst) {
 				trackLatestServerZst(bestaetigung.$?.Zst)
 			}
+		},
+		onSubscriptionRestored: (service, {aboId, expiresAt}) => {
+			// todo: check if already exists?
+			activeSubscriptions.push({service, expiresAt, aboId})
 		},
 		onSubscriptionUpdated: (svc, {aboId, aboSubTag, aboSubChildren}, bestaetigung, subStats) => {
 			// todo: track even itself?
@@ -511,6 +517,12 @@ const sendVdv453DataToNats = async (cfg, opt = {}) => {
 				service,
 				expires,
 			} = subscription
+
+			if (activeSubscriptions.find((sub) => sub.service === service && sub.expiresAt === expires)) {
+				// todo: info-log
+				continue
+			}
+
 			if (service === 'AUS') {
 				const {
 					startPromise,
