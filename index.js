@@ -14,8 +14,11 @@ import {
 	createMetricsServer,
 	register as metricsRegister,
 } from './lib/metrics.js'
+import {SERVICES} from 'vdv-453-client/lib/services.js'
 import {kBestaetigungZst} from 'vdv-453-client/lib/symbols.js'
 import {connectToNats, JSONCodec} from './lib/nats.js'
+
+const _noop = () => {}
 
 const sendVdv453DataToNats = async (cfg, opt = {}) => {
 	const {
@@ -51,6 +54,13 @@ const sendVdv453DataToNats = async (cfg, opt = {}) => {
 		natsOpts: {},
 		checkServerStatusInterval: 5 * 1000, // milliseconds
 		ausManualFetchInterval: 30 * 1000, // 30 seconds, vdv-453-client's default
+		...opt,
+	}
+	const {
+		ausCheckServerStatusInterval,
+	} = {
+		// todo [breaking]: don't default to opt.checkServerStatusInterval
+		ausCheckServerStatusInterval: checkServerStatusInterval,
 		...opt,
 	}
 
@@ -342,6 +352,17 @@ const sendVdv453DataToNats = async (cfg, opt = {}) => {
 	const natsJson = JSONCodec()
 	// todo: warn-log publish failures?
 
+	const publishToNats = (topic, item) => {
+		// todo: trace-log?
+		const tSent = Date.now()
+		natsClient.publish(topic, natsJson.encode(item))
+
+		// We slice() to keep the cardinality low in case of a bug.
+		const topic_root = (topic.split('.')[0] || '').slice(0, 7)
+		natsNrOfMessagesSentTotal.inc({topic_root})
+		natsLatestMessageSentTimestampSeconds.set({topic_root}, tSent)
+	}
+
 	{
 		// todo: process other AUSNachricht children
 		client.data.on('aus:IstFahrt', (istFahrt) => {
@@ -391,41 +412,27 @@ const sendVdv453DataToNats = async (cfg, opt = {}) => {
 			// make unenumerable properties regular ones, so that they end up in the JSON
 			istFahrt['$BestaetigungZst'] = istFahrt[kBestaetigungZst]
 
-			// logger.trace({
-			// 	topic,
-			// 	istFahrt,
-			// }, 'publishing AUS IstFahrt to NATS')
-			const tSent = Date.now()
-			natsClient.publish(topic, natsJson.encode(istFahrt))
-
-			// We slice() to keep the cardinality low in case of a bug.
-			const topic_root = (topic.split('.')[0] || '').slice(0, 7)
-			natsNrOfMessagesSentTotal.inc({topic_root})
-			natsLatestMessageSentTimestampSeconds.set({topic_root}, tSent)
+			publishToNats(topic, istFahrt)
 		})
 	}
 
-	const subscribeToAUS = (expires) => {
+	const _subscribe = (subscribeMethod, unsubscribeMethod, ...subscribeArgs) => {
 		let aboId = null
 		// todo: support `expires` value of `'never'`/`Infinity`, re-subscribing continuously?
 		const startTask = async () => {
-			const {aboId: _aboId} = await client.ausSubscribe({
-				expiresAt: expires * 1000, // vdv-453-client uses milliseconds
-				fetchInterval: ausManualFetchInterval,
-			})
+			const {aboId: _aboId} = await client[subscribeMethod](...subscribeArgs)
 			aboId = _aboId
 		}
-
-		const unsubscribeFromAUS = async () => {
+		const unsubscribe = async () => {
 			if (aboId === null) return;
-			await client.ausUnsubscribe(aboId)
+			await client[unsubscribeMethod](aboId)
 		}
 
 		const startPromise = startTask()
 
 		return {
 			startPromise,
-			stopTask: unsubscribeFromAUS,
+			stopTask: unsubscribe,
 		}
 	}
 
@@ -441,20 +448,21 @@ const sendVdv453DataToNats = async (cfg, opt = {}) => {
 		metricsServer.close()
 	}
 
-	// fetch server status periodically
-	{
-		const checkAndResetTimer = async () => {
-			const svc = 'aus'
-			const logCtx = {
-				service: svc,
-			}
+	const startCheckingServerStatusPeriodically = (svc, checkMethod, interval, processServerStatus = _noop) => {
+		const logCtx = {
+			service: svc,
+		}
 
+		const checkAndResetTimer = async () => {
 			// setTimeout() handles neither async functions nor rejections, so we must catch errors here by ourselves.
 			try {
+				const serverStatus = await client[checkMethod]()
+				await processServerStatus()
+
 				const {
 					startDienstZst,
 					datenVersionID,
-				} = await client.ausCheckServerStatus()
+				} = serverStatus
 				// todo: warn if status is not ok?
 
 				if (startDienstZst === null) {
@@ -484,26 +492,25 @@ const sendVdv453DataToNats = async (cfg, opt = {}) => {
 					}
 					trackVdvStatusAntwortOk(svc, false, ts)
 				}
+
+				// todo: throw programmer errors!
 			} finally {
-				checkTimer = setTimeout(checkAndResetTimer, checkServerStatusInterval)
+				checkTimer = setTimeout(checkAndResetTimer, interval)
 			}
 		}
-		const checkServerStatusInitialWait = Math.max(checkServerStatusInterval / 30, 2_000) // 2 seconds minimum
-		let checkTimer = setTimeout(checkAndResetTimer, checkServerStatusInitialWait)
+		const initialWait = Math.max(interval / 30, 2_000) // 2 seconds minimum
+		let checkTimer = setTimeout(checkAndResetTimer, initialWait)
 
 		stopTasks.push(() => {
 			clearTimeout(checkTimer)
 		})
 	}
 
-	for (const subscription of subscriptions) {
-		const {
-			service,
-		} = subscription
-		if (service !== 'AUS') {
-			throw new Error(`invalid/unsupported service "${service}"`)
-		}
-	}
+	startCheckingServerStatusPeriodically(
+		SERVICES.AUS,
+		'ausCheckServerStatus',
+		ausCheckServerStatusInterval,
+	)
 
 	// (re-)create all subscriptions specified by `subscriptions`
 	const subscribe = async () => {
@@ -511,8 +518,8 @@ const sendVdv453DataToNats = async (cfg, opt = {}) => {
 			subscriptions,
 		}, '(re)creating all subscriptions')
 
-		const startPromises = []
-		for (const subscription of subscriptions) {
+		const subscribeFns = subscriptions
+		.map((subscription) => {
 			const {
 				service,
 				expires,
@@ -520,20 +527,36 @@ const sendVdv453DataToNats = async (cfg, opt = {}) => {
 
 			if (activeSubscriptions.find((sub) => sub.service === service && sub.expiresAt === expires)) {
 				// todo: info-log
-				continue
+				return null
 			}
 
-			if (service === 'AUS') {
+			let subscribe = null
+			if (service === 'AUS') { // todo [breaking]: use `SERVICES.AUS`
+				subscribe = () => {
+					return _subscribe('ausSubscribe', 'ausUnsubscribe', {
+						expiresAt: expires * 1000, // vdv-453-client uses milliseconds
+						fetchInterval: ausManualFetchInterval,
+					})
+				}
+			} else {
+				throw new Error(`invalid/unsupported service "${service}"`)
+			}
+
+			return async () => {
 				const {
 					startPromise,
 					stopTask,
-				} = subscribeToAUS(expires)
-				startPromises.push(startPromise)
+				} = subscribe()
 				stopTasks.push(stopTask)
+				return await startPromise
 			}
-		}
+		})
+		.filter(subscribe => subscribe !== null)
+
 		// todo: cancel successfully created subscriptions & exit if one of these fails
-		await Promise.all(startPromises)
+		await Promise.all(
+			subscribeFns.map(subscribe => subscribe())
+		)
 	}
 
 	await subscribe()

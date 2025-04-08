@@ -56,32 +56,33 @@ Notes:
     Valid values for `service`:
     - `AUS` subscribes to the VDV-454 AUS service containing network-wide realtime data.
 Options:
-	--leitstelle              -l  VDV-453 Leitstellenkennung, a string identifying this
-	                              client, a bit like an HTTP User-Agent. Must be agreed-
-	                              upon with the provider of the VDV-453 API.
-	                              Default: $VDV_453_LEITSTELLE
-	--their-leitstelle        -L  VDV-453 Leitstellenkennung of the server. Must be agreed-
-	                              upon with the provider of the VDV-453 API.
-	                              Default: $VDV_453_THEIR_LEITSTELLE
-	--endpoint                -e  HTTP(S) URL of the VDV-453 API.
-	                              Default: $VDV_453_ENDPOINT
-	--port                    -p  Port to listen on. VDV-453 requires the *client* to run
-	                              an HTTP server that the VDV-453 API can call.
-	                              Default: $PORT, otherwise 3000
-	--expires                     Set the subscription's expiry date & time. Must be an
-	                              ISO 8601 date+time string or a UNIX epoch/timestamp.
-	                              Default: now + 1h
-	--aus-manual-fetch-interval   How often to *manually* fetch the data of an AUS
-	                              subscription, in milliseconds.
-	                              Usually, the server should notify the client about new
-	                              data, but some may not.
-	                              Default: 30_000
-	--nats-servers                NATS server(s) to connect to.
-	                              Default: $NATS_SERVERS
-	--nats-user                   User to use when authenticating with NATS server.
-	                              Default: $NATS_USER
-	--nats-client-name            Name identifying the NATS client among others.
-	                              Default: vdv453-1-${randomHex(4)}
+	--leitstelle                 -l  VDV-453 Leitstellenkennung, a string identifying this
+	                                 client, a bit like an HTTP User-Agent. Must be agreed-
+	                                 upon with the provider of the VDV-453 API.
+	                                 Default: $VDV_453_LEITSTELLE
+	--their-leitstelle           -L  VDV-453 Leitstellenkennung of the server. Must be agreed-
+	                                 upon with the provider of the VDV-453 API.
+	                                 Default: $VDV_453_THEIR_LEITSTELLE
+	--endpoint                   -e  HTTP(S) URL of the VDV-453 API.
+	                                 Default: $VDV_453_ENDPOINT
+	--port                       -p  Port to listen on. VDV-453 requires the *client* to run
+	                                 an HTTP server that the VDV-453 API can call.
+	                                 Default: $PORT, otherwise 3000
+	--nats-servers                   NATS server(s) to connect to.
+	                                 Default: $NATS_SERVERS
+	--nats-user                      User to use when authenticating with NATS server.
+	                                 Default: $NATS_USER
+	--nats-client-name               Name identifying the NATS client among others.
+	                                 Default: vdv453-1-${randomHex(4)}
+AUS-specific Options:
+	--expires                        Set the AUS subscription's expiry date & time. Must be
+	                                 an ISO 8601 date+time string or a UNIX epoch/timestamp.
+	                                 Default: now + 1h
+	--aus-manual-fetch-interval      How often to *manually* fetch the data of an AUS
+	                                 subscription, in milliseconds.
+	                                 Usually, the server should notify the client about new
+	                                 data, but some may not.
+	                                 Default: 30_000 (30s)
 Exit Codes:
 	1 – generic and/or unexpected error
 	2 – operation canceled

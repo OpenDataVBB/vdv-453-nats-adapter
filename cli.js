@@ -38,12 +38,6 @@ const {
 			type: 'string',
 			short: 'p',
 		},
-		'expires': {
-			type: 'string',
-		},
-		'aus-manual-fetch-interval': {
-			type: 'string',
-		},
 		'nats-servers': {
 			type: 'string',
 		},
@@ -51,6 +45,12 @@ const {
 			type: 'string',
 		},
 		'nats-client-name': {
+			type: 'string',
+		},
+		'expires': {
+			type: 'string',
+		},
+		'aus-manual-fetch-interval': {
 			type: 'string',
 		},
 	},
@@ -65,32 +65,33 @@ Notes:
     Valid values for \`service\`:
     - \`AUS\` subscribes to the VDV-454 AUS service containing network-wide realtime data.
 Options:
-	--leitstelle              -l  VDV-453 Leitstellenkennung, a string identifying this
-	                              client, a bit like an HTTP User-Agent. Must be agreed-
-	                              upon with the provider of the VDV-453 API.
-	                              Default: $VDV_453_LEITSTELLE
-	--their-leitstelle        -L  VDV-453 Leitstellenkennung of the server. Must be agreed-
-	                              upon with the provider of the VDV-453 API.
-	                              Default: $VDV_453_THEIR_LEITSTELLE
-	--endpoint                -e  HTTP(S) URL of the VDV-453 API.
-	                              Default: $VDV_453_ENDPOINT
-	--port                    -p  Port to listen on. VDV-453 requires the *client* to run
-	                              an HTTP server that the VDV-453 API can call.
-	                              Default: $PORT, otherwise 3000
-	--expires                     Set the subscription's expiry date & time. Must be an
-	                              ISO 8601 date+time string or a UNIX epoch/timestamp.
-	                              Default: now + 1h
-	--aus-manual-fetch-interval   How often to *manually* fetch the data of an AUS
-	                              subscription, in milliseconds.
-	                              Usually, the server should notify the client about new
-	                              data, but some may not.
-	                              Default: 30_000
-	--nats-servers                NATS server(s) to connect to.
-	                              Default: $NATS_SERVERS
-	--nats-user                   User to use when authenticating with NATS server.
-	                              Default: $NATS_USER
-	--nats-client-name            Name identifying the NATS client among others.
-	                              Default: ${NATS_CLIENT_NAME_PREFIX}\${randomHex(4)}
+	--leitstelle                 -l  VDV-453 Leitstellenkennung, a string identifying this
+	                                 client, a bit like an HTTP User-Agent. Must be agreed-
+	                                 upon with the provider of the VDV-453 API.
+	                                 Default: $VDV_453_LEITSTELLE
+	--their-leitstelle           -L  VDV-453 Leitstellenkennung of the server. Must be agreed-
+	                                 upon with the provider of the VDV-453 API.
+	                                 Default: $VDV_453_THEIR_LEITSTELLE
+	--endpoint                   -e  HTTP(S) URL of the VDV-453 API.
+	                                 Default: $VDV_453_ENDPOINT
+	--port                       -p  Port to listen on. VDV-453 requires the *client* to run
+	                                 an HTTP server that the VDV-453 API can call.
+	                                 Default: $PORT, otherwise 3000
+	--nats-servers                   NATS server(s) to connect to.
+	                                 Default: $NATS_SERVERS
+	--nats-user                      User to use when authenticating with NATS server.
+	                                 Default: $NATS_USER
+	--nats-client-name               Name identifying the NATS client among others.
+	                                 Default: ${NATS_CLIENT_NAME_PREFIX}\${randomHex(4)}
+AUS-specific Options:
+	--expires                        Set the AUS subscription's expiry date & time. Must be
+	                                 an ISO 8601 date+time string or a UNIX epoch/timestamp.
+	                                 Default: now + 1h
+	--aus-manual-fetch-interval      How often to *manually* fetch the data of an AUS
+	                                 subscription, in milliseconds.
+	                                 Usually, the server should notify the client about new
+	                                 data, but some may not.
+	                                 Default: 30_000 (30s)
 Exit Codes:
 	1 – generic and/or unexpected error
 	2 – operation canceled
@@ -107,7 +108,10 @@ if (flags.version) {
 }
 
 import {DateTime, SystemZone} from 'luxon'
-import {Vdv453ApiError} from 'vdv-453-client'
+import {
+	SERVICES,
+	Vdv453ApiError,
+} from 'vdv-453-client'
 import {sendVdv453DataToNats} from './index.js'
 
 const STATUS_CODE_CANCELED = 2
@@ -121,15 +125,26 @@ const abortWithError = (err) => {
 }
 
 const cfg = {}
-const subscriptionOpts = {}
+const subscriptionOpts = Object.fromEntries(
+	SERVICES.map(svc => [svc, {}])
+)
 const opt = {
 	natsOpts: {},
 }
 
-const [service] = args
-if (typeof service !== 'string' || !service) {
-	abortWithError('missing/empty service')
+const validServices = Object.keys(SERVICES).filter(key => !/^\d+$/.test(key)) // ignore array indices
+if (args.length === 0) {
+	abortWithError('missing service')
 }
+const [serviceArg] = args
+if (!serviceArg) {
+	abortWithError(`missing/empty service`)
+}
+if (!validServices.includes(serviceArg)) {
+	abortWithError(`invalid service, must be one of ${validServices.join(', ')}`)
+}
+// todo: use `SERVICES[serviceArg]` (requires breaking changes in index.js)
+const service = serviceArg
 
 if ('leitstelle' in flags) {
 	cfg.leitstelle = flags.leitstelle
@@ -162,16 +177,30 @@ if ('port' in flags) {
 	cfg.port = 3000
 }
 
-if ('expires' in flags) {
-	if (/^\d+$/.test(flags.expires)) { // UNIX epoch/timestamp
-		subscriptionOpts.expires = parseInt(flags.expires)
+if ('nats-servers' in flags) {
+	opt.natsOpts.servers = flags['nats-servers'].split(',')
+}
+if ('nats-user' in flags) {
+	opt.natsOpts.user = flags['nats-user']
+}
+if ('nats-client-name' in flags) {
+	opt.natsOpts.name = flags['nats-client-name']
+}
+
+const parseExpiresFlag = (expiresFlag) => {
+	if (/^\d+$/.test(expiresFlag)) { // UNIX epoch/timestamp
+		return parseInt(expiresFlag)
 	} else {
-		const expires = DateTime.fromISO(flags.expires, {setZone: true})
+		const expires = DateTime.fromISO(expiresFlag, {setZone: true})
 		if (expires.zone instanceof SystemZone) {
 			abortWithError('--expires ISO 8601 must specify a time zone (offset)')
 		}
-		subscriptionOpts.expires = expires.toUnixInteger()
+		return expires.toUnixInteger()
 	}
+}
+// todo [breaking]: rename to --aus-expires?
+if ('expires' in flags) {
+	subscriptionOpts.expires = parseExpiresFlag(flags.expires)
 } else {
 	// now + 1h
 	subscriptionOpts.expires = (Date.now() / 1000 | 0) + 60 * 60
@@ -182,16 +211,6 @@ if ('aus-manual-fetch-interval' in flags) {
 	if (!Number.isInteger(opt.ausManualFetchInterval)) {
 			abortWithError('--aus-manual-fetch-interval must be an integer')
 	}
-}
-
-if ('nats-servers' in flags) {
-	opt.natsOpts.servers = flags['nats-servers'].split(',')
-}
-if ('nats-user' in flags) {
-	opt.natsOpts.user = flags['nats-user']
-}
-if ('nats-client-name' in flags) {
-	opt.natsOpts.name = flags['nats-client-name']
 }
 
 cfg.subscriptions = [
