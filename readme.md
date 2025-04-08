@@ -51,10 +51,11 @@ send-vdv-453-data-to-nats \
 
 ```
 Usage:
-    send-vdv-453-data-to-nats [options] <service>
+	send-vdv-453-data-to-nats [options] <service> [<service>...]
 Notes:
-    Valid values for `service`:
-    - `AUS` subscribes to the VDV-454 AUS service containing network-wide realtime data.
+	Valid values for `service`:
+	- `AUS` subscribes to the VDV-454 AUS service containing network-wide realtime data.
+	- `REF_AUS` subscribes to the VDV-454 REF-AUS service containing network-wide plan data.
 Options:
 	--leitstelle                 -l  VDV-453 Leitstellenkennung, a string identifying this
 	                                 client, a bit like an HTTP User-Agent. Must be agreed-
@@ -73,7 +74,20 @@ Options:
 	--nats-user                      User to use when authenticating with NATS server.
 	                                 Default: $NATS_USER
 	--nats-client-name               Name identifying the NATS client among others.
-	                                 Default: vdv453-1-${randomHex(4)}
+	                                 Default: vdv453-2-${randomHex(4)}
+REF-AUS-specific Options:
+	--ref-aus-expires                Set the REF-AUS subscription's expiry date & time. Must
+	                                 be an ISO 8601 date+time string or a UNIX epoch/timestamp.
+	                                 Default: now + 1d
+	--ref-aus-valid-from             Start of the time frame to get plan data for.
+	                                 The plan data will include those SollFahrt items whose
+	                                 first departure is within the time frame.
+	--ref-aus-valid-until            End of the time frame to get plan data for.
+	--ref-aus-manual-fetch-interval  How often to *manually* fetch the data of an REF-AUS
+	                                 subscription, in milliseconds.
+	                                 Usually, the server should notify the client about new
+	                                 data, but some may not.
+	                                 Default: 300_000 (5m)
 AUS-specific Options:
 	--aus-expires                    Set the AUS subscription's expiry date & time. Must be
 	                                 an ISO 8601 date+time string or a UNIX epoch/timestamp.
@@ -88,7 +102,7 @@ Exit Codes:
 	2 – operation canceled
 	3 – VDV-453 API error
 Examples:
-    send-vdv-453-data-to-nats --expires never AUS
+	send-vdv-453-data-to-nats --expires never AUS
 ```
 
 

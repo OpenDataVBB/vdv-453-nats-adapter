@@ -47,12 +47,16 @@ const sendVdv453DataToNats = async (cfg, opt = {}) => {
 	const {
 		vdv453ClientOpts,
 		natsOpts,
+		refAusCheckServerStatusInterval,
 		ausCheckServerStatusInterval,
+		refAusManualFetchInterval,
 		ausManualFetchInterval,
 	} = {
 		vdv453ClientOpts: {},
 		natsOpts: {},
+		refAusCheckServerStatusInterval: 5 * 60 * 1000, // 5 minutes
 		ausCheckServerStatusInterval: 5 * 1000, // 5 seconds
+		refAusManualFetchInterval: 5 * 60 * 1000, // 5 minutes, vdv-453-client's default
 		ausManualFetchInterval: 30 * 1000, // 30 seconds, vdv-453-client's default
 		...opt,
 	}
@@ -135,15 +139,6 @@ const sendVdv453DataToNats = async (cfg, opt = {}) => {
 	})
 	// todo: track latest successful data fetch?
 
-	const ausIstFahrtsTotal = new Summary({
-		name: 'vdv_aus_istfahrts_total',
-		help: 'number of VDV-454 AUS IstFahrts obtained in each fetch',
-		registers: [metricsRegister],
-		labelNames: [
-			'datensatz_alle', // if the fetch was with DatensatzAlle=true
-		],
-	})
-
 	const _updateGaugeWithIso8601Timestamp = (gaugeMetric, iso8601Ts, labels = {}) => {
 		const seconds = Date.parse(iso8601Ts) / 1000
 		if (Number.isNaN(seconds)) {
@@ -154,6 +149,32 @@ const sendVdv453DataToNats = async (cfg, opt = {}) => {
 			gaugeMetric.set(labels, seconds)
 		}
 	}
+
+	const refAusSollFahrtsTotal = new Summary({
+		name: 'vdv_ref_aus_follfahrts_total',
+		help: 'number of VDV-454 REF-AUS SollFahrts obtained in each fetch',
+		registers: [metricsRegister],
+		labelNames: [
+			'datensatz_alle', // if the fetch was with DatensatzAlle=true
+		],
+	})
+	const latestRefAusSollFahrtZstSeconds = new Gauge({
+		name: 'vdv_latest_ref_aus_sollfahrt_zst_seconds',
+		help: 'latest Zst (timestamp) seen in any VDV-454 REF-AUS SollFahrt',
+		registers: [metricsRegister],
+	})
+	const trackLatestRefAusSollFahrtZst = (zst) => {
+		_updateGaugeWithIso8601Timestamp(latestRefAusSollFahrtZstSeconds, zst)
+	}
+
+	const ausIstFahrtsTotal = new Summary({
+		name: 'vdv_aus_istfahrts_total',
+		help: 'number of VDV-454 AUS IstFahrts obtained in each fetch',
+		registers: [metricsRegister],
+		labelNames: [
+			'datensatz_alle', // if the fetch was with DatensatzAlle=true
+		],
+	})
 	const latestAusIstFahrtZstSeconds = new Gauge({
 		name: 'vdv_latest_aus_istfahrt_zst_seconds',
 		help: 'latest Zst (timestamp) seen in any VDV-454 AUS IstFahrt',
@@ -162,6 +183,7 @@ const sendVdv453DataToNats = async (cfg, opt = {}) => {
 	const trackLatestAusIstFahrtZst = (zst) => {
 		_updateGaugeWithIso8601Timestamp(latestAusIstFahrtZstSeconds, zst)
 	}
+
 	// todo: track our own time, too, in case the two system's date+time diverge?
 	const latestServerZstSeconds = new Gauge({
 		name: 'vdv_latest_server_zst_seconds',
@@ -319,6 +341,11 @@ const sendVdv453DataToNats = async (cfg, opt = {}) => {
 				kind: 'failed',
 			})
 		},
+		onRefAusFetchSucceeded: ({datensatzAlle}, {nrOfSollFahrts}) => {
+			refAusSollFahrtsTotal.observe({
+				datensatz_alle: datensatzAlle,
+			}, nrOfSollFahrts)
+		},
 		onAusFetchSucceeded: ({datensatzAlle}, {nrOfIstFahrts}) => {
 			ausIstFahrtsTotal.observe({
 				datensatz_alle: datensatzAlle,
@@ -359,6 +386,65 @@ const sendVdv453DataToNats = async (cfg, opt = {}) => {
 		natsLatestMessageSentTimestampSeconds.set({topic_root}, tSent)
 	}
 
+	// Note: `fahrt` can be either a REF-AUS SollFahrt or an AUS IstFahrt.
+	const computeFahrtTopic = (fahrt, prefix = '') => {
+		const emptySegment = '_'
+		// > Recommended characters: `a` to `z`, `A` to `Z` and `0` to `9` (names […] cannot contain whitespace).
+		// > Special characters: The period `.` and `*` and also `>`.
+		// Note: By mapping IDs with non-recommended characters to `_`, we accept a low chance of ID collisions here, e.g. between `foo.bar >baz` and `foo_bar__baz`.
+		// todo: consider replacing only special/unsafe characters (`.`/`*`/`>`/` `)
+		const escapeTopicSegment = id => id.replace(/[^a-zA-Z0-9]/g, '_')
+
+		const {
+			LinienID: linienId,
+			LinienText: linienText,
+			RichtungsID: richtungsId,
+			RichtungsText: richtungsText,
+		} = fahrt
+		const {
+			FahrtBezeichner: fahrtBezeichner,
+			Betriebstag: betriebstag,
+		} = fahrt.FahrtID || {}
+
+		// We make up a hierarchical topic `aus.istfahrt.$linie.$richtung.$fahrt` that allows consumers to pre-filter.
+		// With some IstFahrts some IDs are missing, so we use the test equivalents as fallbacks.
+		const linieSegment = linienId
+			? `id:${escapeTopicSegment(linienId)}`
+			: (linienText
+				// todo: add configurable text normalization? e.g. Unicode -> ASCII, lower case
+				? `text:${escapeTopicSegment(linienText)}`
+				: emptySegment
+			)
+		const richtungSegment = richtungsId
+			? `id:${escapeTopicSegment(richtungsId)}`
+			: (richtungsText
+				// todo: add configurable text normalization? e.g. Unicode -> ASCII, lower case
+				? `text:${escapeTopicSegment(richtungsText)}`
+				: emptySegment
+			)
+		const fahrtSegment = fahrtBezeichner && betriebstag
+			? `id:${escapeTopicSegment(fahrtBezeichner)}:tag:${escapeTopicSegment(betriebstag)}`
+			: emptySegment
+
+		return `${prefix}${linieSegment}.${richtungSegment}.${fahrtSegment}`
+	}
+
+	{
+		// todo: process other AUSNachricht children
+		client.data.on(`${SERVICES.REF_AUS}:SollFahrt`, (sollFahrt) => {
+			if (sollFahrt.Zst) { // it seems that not all servers implement this
+				trackLatestRefAusSollFahrtZst(sollFahrt.Zst)
+			}
+
+			const topic = computeFahrtTopic(sollFahrt, 'ref_aus.sollfahrt.')
+
+			// make unenumerable properties regular ones, so that they end up in the JSON
+			sollFahrt['$BestaetigungZst'] = sollFahrt[kBestaetigungZst]
+
+			publishToNats(topic, sollFahrt)
+		})
+	}
+
 	{
 		// todo: process other AUSNachricht children
 		client.data.on('aus:IstFahrt', (istFahrt) => {
@@ -366,44 +452,7 @@ const sendVdv453DataToNats = async (cfg, opt = {}) => {
 				trackLatestAusIstFahrtZst(istFahrt.Zst)
 			}
 
-			const emptySegment = '_'
-			// > Recommended characters: `a` to `z`, `A` to `Z` and `0` to `9` (names […] cannot contain whitespace).
-			// > Special characters: The period `.` and `*` and also `>`.
-			// Note: By mapping IDs with non-recommended characters to `_`, we accept a low chance of ID collisions here, e.g. between `foo.bar >baz` and `foo_bar__baz`.
-			// todo: consider replacing only special/unsafe characters (`.`/`*`/`>`/` `)
-			const escapeTopicSegment = id => id.replace(/[^a-zA-Z0-9]/g, '_')
-
-			const {
-				LinienID: linienId,
-				LinienText: linienText,
-				RichtungsID: richtungsId,
-				RichtungsText: richtungsText,
-			} = istFahrt
-			const {
-				FahrtBezeichner: fahrtBezeichner,
-				Betriebstag: betriebstag,
-			} = istFahrt.FahrtID || {}
-
-			// We make up a hierarchical topic `aus.istfahrt.$linie.$richtung.$fahrt` that allows consumers to pre-filter.
-			// With some IstFahrts some IDs are missing, so we use the test equivalents as fallbacks.
-			const linieSegment = linienId
-				? `id:${escapeTopicSegment(linienId)}`
-				: (linienText
-					// todo: add configurable text normalization? e.g. Unicode -> ASCII, lower case
-					? `text:${escapeTopicSegment(linienText)}`
-					: emptySegment
-				)
-			const richtungSegment = richtungsId
-				? `id:${escapeTopicSegment(richtungsId)}`
-				: (richtungsText
-					// todo: add configurable text normalization? e.g. Unicode -> ASCII, lower case
-					? `text:${escapeTopicSegment(richtungsText)}`
-					: emptySegment
-				)
-			const fahrtSegment = fahrtBezeichner && betriebstag
-				? `id:${escapeTopicSegment(fahrtBezeichner)}:tag:${escapeTopicSegment(betriebstag)}`
-				: emptySegment
-			const topic = `aus.istfahrt.${linieSegment}.${richtungSegment}.${fahrtSegment}`
+			const topic = computeFahrtTopic(istFahrt, 'aus.istfahrt.')
 
 			// make unenumerable properties regular ones, so that they end up in the JSON
 			istFahrt['$BestaetigungZst'] = istFahrt[kBestaetigungZst]
@@ -494,7 +543,7 @@ const sendVdv453DataToNats = async (cfg, opt = {}) => {
 				checkTimer = setTimeout(checkAndResetTimer, interval)
 			}
 		}
-		const initialWait = Math.max(interval / 30, 2_000) // 2 seconds minimum
+		const initialWait = Math.min(Math.max(interval / 30, 2_000), 10_000) // between 2s and 10s
 		let checkTimer = setTimeout(checkAndResetTimer, initialWait)
 
 		stopTasks.push(() => {
@@ -506,6 +555,11 @@ const sendVdv453DataToNats = async (cfg, opt = {}) => {
 		SERVICES.AUS,
 		'ausCheckServerStatus',
 		ausCheckServerStatusInterval,
+	)
+	startCheckingServerStatusPeriodically(
+		SERVICES.REF_AUS,
+		'refAusCheckServerStatus',
+		refAusCheckServerStatusInterval,
 	)
 
 	// (re-)create all subscriptions specified by `subscriptions`
@@ -527,7 +581,21 @@ const sendVdv453DataToNats = async (cfg, opt = {}) => {
 			}
 
 			let subscribe = null
-			if (service === SERVICES.AUS) {
+			if (service === SERVICES.REF_AUS) {
+				const subscribeOpts = {
+					expiresAt: expires * 1000, // vdv-453-client uses milliseconds
+					fetchInterval: refAusManualFetchInterval,
+				}
+				if ('validFrom' in subscription) {
+					subscribeOpts.validFrom = subscription.validFrom * 1000 // vdv-453-client uses milliseconds
+				}
+				if ('validUntil' in subscription) {
+					subscribeOpts.validUntil = subscription.validUntil * 1000 // vdv-453-client uses milliseconds
+				}
+				subscribe = () => {
+					return _subscribe('refAusSubscribe', 'refAusUnsubscribe', subscribeOpts)
+				}
+			} else if (service === SERVICES.AUS) {
 				subscribe = () => {
 					return _subscribe('ausSubscribe', 'ausUnsubscribe', {
 						expiresAt: expires * 1000, // vdv-453-client uses milliseconds

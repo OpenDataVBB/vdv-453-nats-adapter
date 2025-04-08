@@ -47,6 +47,18 @@ const {
 		'nats-client-name': {
 			type: 'string',
 		},
+		'ref-aus-expires': {
+			type: 'string',
+		},
+		'ref-aus-valid-from': {
+			type: 'string',
+		},
+		'ref-aus-valid-until': {
+			type: 'string',
+		},
+		'ref-aus-manual-fetch-interval': {
+			type: 'string',
+		},
 		'aus-expires': {
 			type: 'string',
 		},
@@ -60,10 +72,11 @@ const {
 if (flags.help) {
 	process.stdout.write(`
 Usage:
-    send-vdv-453-data-to-nats [options] <service>
+	send-vdv-453-data-to-nats [options] <service> [<service>...]
 Notes:
-    Valid values for \`service\`:
-    - \`AUS\` subscribes to the VDV-454 AUS service containing network-wide realtime data.
+	Valid values for \`service\`:
+	- \`AUS\` subscribes to the VDV-454 AUS service containing network-wide realtime data.
+	- \`REF_AUS\` subscribes to the VDV-454 REF-AUS service containing network-wide plan data.
 Options:
 	--leitstelle                 -l  VDV-453 Leitstellenkennung, a string identifying this
 	                                 client, a bit like an HTTP User-Agent. Must be agreed-
@@ -83,6 +96,19 @@ Options:
 	                                 Default: $NATS_USER
 	--nats-client-name               Name identifying the NATS client among others.
 	                                 Default: ${NATS_CLIENT_NAME_PREFIX}\${randomHex(4)}
+REF-AUS-specific Options:
+	--ref-aus-expires                Set the REF-AUS subscription's expiry date & time. Must
+	                                 be an ISO 8601 date+time string or a UNIX epoch/timestamp.
+	                                 Default: now + 1d
+	--ref-aus-valid-from             Start of the time frame to get plan data for.
+	                                 The plan data will include those SollFahrt items whose
+	                                 first departure is within the time frame.
+	--ref-aus-valid-until            End of the time frame to get plan data for.
+	--ref-aus-manual-fetch-interval  How often to *manually* fetch the data of an REF-AUS
+	                                 subscription, in milliseconds.
+	                                 Usually, the server should notify the client about new
+	                                 data, but some may not.
+	                                 Default: 300_000 (5m)
 AUS-specific Options:
 	--aus-expires                    Set the AUS subscription's expiry date & time. Must be
 	                                 an ISO 8601 date+time string or a UNIX epoch/timestamp.
@@ -97,7 +123,7 @@ Exit Codes:
 	2 – operation canceled
 	3 – VDV-453 API error
 Examples:
-    send-vdv-453-data-to-nats --expires never AUS
+	send-vdv-453-data-to-nats --expires never AUS
 \n`)
 	process.exit(0)
 }
@@ -134,16 +160,17 @@ const opt = {
 
 const validServices = Object.keys(SERVICES).filter(key => !/^\d+$/.test(key)) // ignore array indices
 if (args.length === 0) {
-	abortWithError('missing service')
+	abortWithError('missing service(s)')
 }
-const [serviceArg] = args
-if (!serviceArg) {
-	abortWithError(`missing/empty service`)
-}
-if (!validServices.includes(serviceArg)) {
-	abortWithError(`invalid service, must be one of ${validServices.join(', ')}`)
-}
-const service = SERVICES[serviceArg]
+const services = args.map((serviceArg, i) => {
+	if (!serviceArg) {
+		abortWithError(`missing/empty service #${i}`)
+	}
+	if (!validServices.includes(serviceArg)) {
+		abortWithError(`invalid service #${i}, must be one of ${validServices.join(', ')}`)
+	}
+	return SERVICES[serviceArg]
+})
 
 if ('leitstelle' in flags) {
 	cfg.leitstelle = flags.leitstelle
@@ -186,7 +213,7 @@ if ('nats-client-name' in flags) {
 	opt.natsOpts.name = flags['nats-client-name']
 }
 
-const parseExpiresFlag = (expiresFlag) => {
+const parseDateTimeFlag = (expiresFlag) => {
 	if (/^\d+$/.test(expiresFlag)) { // UNIX epoch/timestamp
 		return parseInt(expiresFlag)
 	} else {
@@ -197,13 +224,32 @@ const parseExpiresFlag = (expiresFlag) => {
 		return expires.toUnixInteger()
 	}
 }
-if ('aus-expires' in flags) {
-	subscriptionOpts.expires = parseExpiresFlag(flags['aus-expires'])
+
+if ('ref-aus-expires' in flags) {
+	subscriptionOpts[SERVICES.REF_AUS].expires = parseDateTimeFlag(flags['ref-aus-expires'])
 } else {
 	// now + 1h
-	subscriptionOpts.expires = (Date.now() / 1000 | 0) + 60 * 60
+	subscriptionOpts[SERVICES.REF_AUS].expires = (Date.now() / 1000 | 0) + 24 * 60 * 60
+}
+if ('ref-aus-valid-from' in flags) {
+	subscriptionOpts[SERVICES.REF_AUS].validFrom = parseDateTimeFlag(flags['ref-aus-valid-from'])
+}
+if ('ref-aus-valid-until' in flags) {
+	subscriptionOpts[SERVICES.REF_AUS].validUntil = parseDateTimeFlag(flags['ref-aus-valid-until'])
+}
+if ('ref-aus-manual-fetch-interval' in flags) {
+	opt.refAusManualFetchInterval = parseInt(flags['ref-aus-manual-fetch-interval'])
+	if (!Number.isInteger(opt.refAusManualFetchInterval)) {
+			abortWithError('--ref-aus-manual-fetch-interval must be an integer')
+	}
 }
 
+if ('aus-expires' in flags) {
+	subscriptionOpts[SERVICES.AUS].expires = parseDateTimeFlag(flags['aus-expires'])
+} else {
+	// now + 1h
+	subscriptionOpts[SERVICES.AUS].expires = (Date.now() / 1000 | 0) + 60 * 60
+}
 if ('aus-manual-fetch-interval' in flags) {
 	opt.ausManualFetchInterval = parseInt(flags['aus-manual-fetch-interval'])
 	if (!Number.isInteger(opt.ausManualFetchInterval)) {
@@ -211,12 +257,12 @@ if ('aus-manual-fetch-interval' in flags) {
 	}
 }
 
-cfg.subscriptions = [
-	{
-		...subscriptionOpts,
+cfg.subscriptions = services.map((service) => {
+	return {
+		...subscriptionOpts[service],
 		service,
-	},
-]
+	}
+})
 
 // todo [breaking]: create pino logger here, pass it in?
 let stop = async () => {} // no-op
