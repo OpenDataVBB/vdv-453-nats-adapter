@@ -346,7 +346,10 @@ const sendVdv453DataToNats = async (cfg, opt = {}) => {
 	// todo: warn-log publish failures?
 
 	const publishToNats = (topic, item) => {
-		// todo: trace-log?
+		logger.trace({
+			topic,
+			item,
+		}, 'publishing to NATS')
 		const tSent = Date.now()
 		natsClient.publish(topic, natsJson.encode(item))
 
