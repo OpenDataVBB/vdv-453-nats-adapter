@@ -47,7 +47,7 @@ const {
 		'nats-client-name': {
 			type: 'string',
 		},
-		'expires': {
+		'aus-expires': {
 			type: 'string',
 		},
 		'aus-manual-fetch-interval': {
@@ -84,7 +84,7 @@ Options:
 	--nats-client-name               Name identifying the NATS client among others.
 	                                 Default: ${NATS_CLIENT_NAME_PREFIX}\${randomHex(4)}
 AUS-specific Options:
-	--expires                        Set the AUS subscription's expiry date & time. Must be
+	--aus-expires                    Set the AUS subscription's expiry date & time. Must be
 	                                 an ISO 8601 date+time string or a UNIX epoch/timestamp.
 	                                 Default: now + 1h
 	--aus-manual-fetch-interval      How often to *manually* fetch the data of an AUS
@@ -197,9 +197,8 @@ const parseExpiresFlag = (expiresFlag) => {
 		return expires.toUnixInteger()
 	}
 }
-// todo [breaking]: rename to --aus-expires?
-if ('expires' in flags) {
-	subscriptionOpts.expires = parseExpiresFlag(flags.expires)
+if ('aus-expires' in flags) {
+	subscriptionOpts.expires = parseExpiresFlag(flags['aus-expires'])
 } else {
 	// now + 1h
 	subscriptionOpts.expires = (Date.now() / 1000 | 0) + 60 * 60

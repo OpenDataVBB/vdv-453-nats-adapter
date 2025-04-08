@@ -75,7 +75,7 @@ Options:
 	--nats-client-name               Name identifying the NATS client among others.
 	                                 Default: vdv453-1-${randomHex(4)}
 AUS-specific Options:
-	--expires                        Set the AUS subscription's expiry date & time. Must be
+	--aus-expires                    Set the AUS subscription's expiry date & time. Must be
 	                                 an ISO 8601 date+time string or a UNIX epoch/timestamp.
 	                                 Default: now + 1h
 	--aus-manual-fetch-interval      How often to *manually* fetch the data of an AUS
