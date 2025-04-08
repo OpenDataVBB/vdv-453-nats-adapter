@@ -178,7 +178,7 @@ if ('expires' in flags) {
 }
 
 if ('aus-manual-fetch-interval' in flags) {
-	opt.ausManualFetchInterval = parseInt(flags.expires)
+	opt.ausManualFetchInterval = parseInt(flags['aus-manual-fetch-interval'])
 	if (!Number.isInteger(opt.ausManualFetchInterval)) {
 			abortWithError('--aus-manual-fetch-interval must be an integer')
 	}
