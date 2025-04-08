@@ -47,20 +47,13 @@ const sendVdv453DataToNats = async (cfg, opt = {}) => {
 	const {
 		vdv453ClientOpts,
 		natsOpts,
-		checkServerStatusInterval,
+		ausCheckServerStatusInterval,
 		ausManualFetchInterval,
 	} = {
 		vdv453ClientOpts: {},
 		natsOpts: {},
-		checkServerStatusInterval: 5 * 1000, // milliseconds
+		ausCheckServerStatusInterval: 5 * 1000, // 5 seconds
 		ausManualFetchInterval: 30 * 1000, // 30 seconds, vdv-453-client's default
-		...opt,
-	}
-	const {
-		ausCheckServerStatusInterval,
-	} = {
-		// todo [breaking]: don't default to opt.checkServerStatusInterval
-		ausCheckServerStatusInterval: checkServerStatusInterval,
 		...opt,
 	}
 
