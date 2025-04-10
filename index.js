@@ -531,7 +531,7 @@ const sendVdv453DataToNats = async (cfg, opt = {}) => {
 			}
 
 			let subscribe = null
-			if (service === 'AUS') { // todo [breaking]: use `SERVICES.AUS`
+			if (service === SERVICES.AUS) {
 				subscribe = () => {
 					return _subscribe('ausSubscribe', 'ausUnsubscribe', {
 						expiresAt: expires * 1000, // vdv-453-client uses milliseconds
@@ -569,5 +569,6 @@ const sendVdv453DataToNats = async (cfg, opt = {}) => {
 }
 
 export {
+	SERVICES,
 	sendVdv453DataToNats,
 }

@@ -143,8 +143,7 @@ if (!serviceArg) {
 if (!validServices.includes(serviceArg)) {
 	abortWithError(`invalid service, must be one of ${validServices.join(', ')}`)
 }
-// todo: use `SERVICES[serviceArg]` (requires breaking changes in index.js)
-const service = serviceArg
+const service = SERVICES[serviceArg]
 
 if ('leitstelle' in flags) {
 	cfg.leitstelle = flags.leitstelle
