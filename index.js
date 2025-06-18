@@ -441,6 +441,8 @@ const sendVdv453DataToNats = async (cfg, opt = {}) => {
 			// make unenumerable properties regular ones, so that they end up in the JSON
 			sollFahrt['$BestaetigungZst'] = sollFahrt[kBestaetigungZst]
 
+			// todo: set message TTL?
+			// see https://github.com/nats-io/nats-architecture-and-design/blob/e9ed4e822865553500a7eca46af9e5c315bd813d/adr/ADR-43.md
 			publishToNats(topic, sollFahrt)
 		})
 	}
@@ -457,6 +459,8 @@ const sendVdv453DataToNats = async (cfg, opt = {}) => {
 			// make unenumerable properties regular ones, so that they end up in the JSON
 			istFahrt['$BestaetigungZst'] = istFahrt[kBestaetigungZst]
 
+			// todo: set message TTL?
+			// see https://github.com/nats-io/nats-architecture-and-design/blob/e9ed4e822865553500a7eca46af9e5c315bd813d/adr/ADR-43.md
 			publishToNats(topic, istFahrt)
 		})
 	}
@@ -622,6 +626,8 @@ const sendVdv453DataToNats = async (cfg, opt = {}) => {
 			subscribeFns.map(subscribe => subscribe())
 		)
 	}
+
+	// todo: allow triggering a full re-fetch manually, e.g. via POSIX signal or socket
 
 	await subscribe()
 
