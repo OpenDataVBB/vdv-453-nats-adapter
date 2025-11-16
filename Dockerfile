@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1.6
 # ^ needed for ADD --checksum=…
 
-FROM node:20-alpine as builder
+FROM node:22-alpine as builder
 WORKDIR /app
 
 # install dependencies
@@ -15,7 +15,7 @@ RUN npm install --production
 
 # ---
 
-FROM node:20-alpine
+FROM node:22-alpine
 WORKDIR /app
 
 LABEL org.opencontainers.image.title="vdv-453-nats-adapter"

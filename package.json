@@ -1,7 +1,7 @@
 {
 	"name": "vdv-453-nats-adapter",
 	"description": "Sends realtime public transport data from a VDV-453/VDV-454 API to a NATS message broker.",
-	"version": "2.0.0",
+	"version": "2.0.1",
 	"preferGlobal": true,
 	"type": "module",
 	"main": "index.js",
@@ -33,7 +33,7 @@
 	"bugs": "https://github.com/OpenDataVBB/vdv-453-nats-adapter/issues",
 	"license": "ISC",
 	"engines": {
-		"node": ">=20"
+		"node": ">=22"
 	},
 	"dependencies": {
 		"ioredis": "^5.5.0",
