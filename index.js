@@ -372,28 +372,30 @@ const sendVdv453DataToNats = async (cfg, opt = {}) => {
 	const natsJson = JSONCodec()
 	// todo: warn-log publish failures?
 
-	const publishToNats = (topic, item) => {
+	// todo [breaking]: rename "topic" to "subject" to align with canonical NATS terminology
+	const publishToNats = (subject, item) => {
 		logger.trace({
-			topic,
+			subject,
 			item,
 		}, 'publishing to NATS')
 		const tSent = Date.now()
-		natsClient.publish(topic, natsJson.encode(item))
+		natsClient.publish(subject, natsJson.encode(item))
 
 		// We slice() to keep the cardinality low in case of a bug.
-		const topic_root = (topic.split('.')[0] || '').slice(0, 7)
+		// todo [breaking]: switch to "subject_root" to align with NATS terminology
+		const topic_root = (subject.split('.')[0] || '').slice(0, 7)
 		natsNrOfMessagesSentTotal.inc({topic_root})
 		natsLatestMessageSentTimestampSeconds.set({topic_root}, tSent)
 	}
 
 	// Note: `fahrt` can be either a REF-AUS SollFahrt or an AUS IstFahrt.
-	const computeFahrtTopic = (fahrt, prefix = '') => {
+	const computeFahrtSubject = (fahrt, prefix = '') => {
 		const emptySegment = '_'
 		// > Recommended characters: `a` to `z`, `A` to `Z` and `0` to `9` (names […] cannot contain whitespace).
 		// > Special characters: The period `.` and `*` and also `>`.
 		// Note: By mapping IDs with non-recommended characters to `_`, we accept a low chance of ID collisions here, e.g. between `foo.bar >baz` and `foo_bar__baz`.
 		// todo: consider replacing only special/unsafe characters (`.`/`*`/`>`/` `)
-		const escapeTopicSegment = id => id.replace(/[^a-zA-Z0-9]/g, '_')
+		const escapeSubjectSegment = id => id.replace(/[^a-zA-Z0-9]/g, '_')
 
 		const {
 			LinienID: linienId,
@@ -406,24 +408,24 @@ const sendVdv453DataToNats = async (cfg, opt = {}) => {
 			Betriebstag: betriebstag,
 		} = fahrt.FahrtID || {}
 
-		// We make up a hierarchical topic `aus.istfahrt.$linie.$richtung.$fahrt` that allows consumers to pre-filter.
+		// We make up a hierarchical subject `aus.istfahrt.$linie.$richtung.$fahrt` that allows consumers to pre-filter.
 		// With some IstFahrts some IDs are missing, so we use the test equivalents as fallbacks.
 		const linieSegment = linienId
-			? `id:${escapeTopicSegment(linienId)}`
+			? `id:${escapeSubjectSegment(linienId)}`
 			: (linienText
 				// todo: add configurable text normalization? e.g. Unicode -> ASCII, lower case
-				? `text:${escapeTopicSegment(linienText)}`
+				? `text:${escapeSubjectSegment(linienText)}`
 				: emptySegment
 			)
 		const richtungSegment = richtungsId
-			? `id:${escapeTopicSegment(richtungsId)}`
+			? `id:${escapeSubjectSegment(richtungsId)}`
 			: (richtungsText
 				// todo: add configurable text normalization? e.g. Unicode -> ASCII, lower case
-				? `text:${escapeTopicSegment(richtungsText)}`
+				? `text:${escapeSubjectSegment(richtungsText)}`
 				: emptySegment
 			)
 		const fahrtSegment = fahrtBezeichner && betriebstag
-			? `id:${escapeTopicSegment(fahrtBezeichner)}:tag:${escapeTopicSegment(betriebstag)}`
+			? `id:${escapeSubjectSegment(fahrtBezeichner)}:tag:${escapeSubjectSegment(betriebstag)}`
 			: emptySegment
 
 		return `${prefix}${linieSegment}.${richtungSegment}.${fahrtSegment}`
@@ -436,14 +438,14 @@ const sendVdv453DataToNats = async (cfg, opt = {}) => {
 				trackLatestRefAusSollFahrtZst(sollFahrt.Zst)
 			}
 
-			const topic = computeFahrtTopic(sollFahrt, 'ref_aus.sollfahrt.')
+			const subject = computeFahrtSubject(sollFahrt, 'ref_aus.sollfahrt.')
 
 			// make unenumerable properties regular ones, so that they end up in the JSON
 			sollFahrt['$BestaetigungZst'] = sollFahrt[kBestaetigungZst]
 
 			// todo: set message TTL?
 			// see https://github.com/nats-io/nats-architecture-and-design/blob/e9ed4e822865553500a7eca46af9e5c315bd813d/adr/ADR-43.md
-			publishToNats(topic, sollFahrt)
+			publishToNats(subject, sollFahrt)
 		})
 	}
 
@@ -454,14 +456,14 @@ const sendVdv453DataToNats = async (cfg, opt = {}) => {
 				trackLatestAusIstFahrtZst(istFahrt.Zst)
 			}
 
-			const topic = computeFahrtTopic(istFahrt, 'aus.istfahrt.')
+			const subject = computeFahrtSubject(istFahrt, 'aus.istfahrt.')
 
 			// make unenumerable properties regular ones, so that they end up in the JSON
 			istFahrt['$BestaetigungZst'] = istFahrt[kBestaetigungZst]
 
 			// todo: set message TTL?
 			// see https://github.com/nats-io/nats-architecture-and-design/blob/e9ed4e822865553500a7eca46af9e5c315bd813d/adr/ADR-43.md
-			publishToNats(topic, istFahrt)
+			publishToNats(subject, istFahrt)
 		})
 	}
 
