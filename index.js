@@ -227,7 +227,7 @@ const sendVdv453DataToNats = async (cfg, opt = {}) => {
 		help: 'number of messages sent to NATS',
 		registers: [metricsRegister],
 		labelNames: [
-			'topic_root', // first "segment" of the topic, e.g. `AUS` with `aus.istfahrt.foo.bar`
+			'subject_root', // first "segment" of the NATS subject, e.g. `AUS` with `aus.istfahrt.foo.bar`
 		],
 	})
 	const natsLatestMessageSentTimestampSeconds = new Gauge({
@@ -235,7 +235,7 @@ const sendVdv453DataToNats = async (cfg, opt = {}) => {
 		help: 'when the latest message has been sent to NATS',
 		registers: [metricsRegister],
 		labelNames: [
-			'topic_root', // first "segment" of the topic, e.g. `AUS` with `aus.istfahrt.foo.bar`
+			'subject_root', // first "segment" of the NATS subject, e.g. `AUS` with `aus.istfahrt.foo.bar`
 		],
 	})
 
@@ -372,7 +372,6 @@ const sendVdv453DataToNats = async (cfg, opt = {}) => {
 	const natsJson = JSONCodec()
 	// todo: warn-log publish failures?
 
-	// todo [breaking]: rename "topic" to "subject" to align with canonical NATS terminology
 	const publishToNats = (subject, item) => {
 		logger.trace({
 			subject,
@@ -383,9 +382,9 @@ const sendVdv453DataToNats = async (cfg, opt = {}) => {
 
 		// We slice() to keep the cardinality low in case of a bug.
 		// todo [breaking]: switch to "subject_root" to align with NATS terminology
-		const topic_root = (subject.split('.')[0] || '').slice(0, 7)
-		natsNrOfMessagesSentTotal.inc({topic_root})
-		natsLatestMessageSentTimestampSeconds.set({topic_root}, tSent)
+		const subject_root = (subject.split('.')[0] || '').slice(0, 7)
+		natsNrOfMessagesSentTotal.inc({subject_root})
+		natsLatestMessageSentTimestampSeconds.set({subject_root}, tSent)
 	}
 
 	// Note: `fahrt` can be either a REF-AUS SollFahrt or an AUS IstFahrt.
