@@ -220,6 +220,29 @@ const sendVdv453DataToNats = async (cfg, opt = {}) => {
 		serverDatenVersionIDSeconds.set({service}, mappedDatenVersionID)
 	}
 
+	const latestDatenGueltigAb = new Gauge({
+		name: 'vdv_server_datengueltigab_seconds',
+		help: `The server's DatenGueltigAb (timestamp), as obtained from AboAntwort responses`,
+		registers: [metricsRegister],
+		labelNames: [
+			'service', // VDV-453/-454 service, e.g. AUS
+		],
+	})
+	const latestDatenGueltigBis = new Gauge({
+		name: 'vdv_server_datengueltigbis_seconds',
+		help: `The server's DatenGueltigBis (timestamp), as obtained from AboAntwort responses`,
+		registers: [metricsRegister],
+		labelNames: [
+			'service', // VDV-453/-454 service, e.g. AUS
+		],
+	})
+	const trackLatestDatenGueltigAb = (service, zst) => {
+		_updateGaugeWithIso8601Timestamp(latestDatenGueltigAb, zst, {service: service})
+	}
+	const trackLatestDatenGueltigBis = (service, zst) => {
+		_updateGaugeWithIso8601Timestamp(latestDatenGueltigBis, zst, {service: service})
+	}
+
 	// NATS-related metrics
 	// Note: We mirror OpenDataVBB/gtfs-rt-feed's metrics here.
 	const natsNrOfMessagesSentTotal = new Counter({
@@ -285,6 +308,12 @@ const sendVdv453DataToNats = async (cfg, opt = {}) => {
 			trackNrOfSubscriptions(svc, subStats.nrOfSubscriptions)
 			if (bestaetigung.$?.Zst) {
 				trackLatestServerZst(bestaetigung.$?.Zst)
+			}
+			if (bestaetigung.DatenGueltigAb?.$text) {
+				trackLatestDatenGueltigAb(svc, bestaetigung.DatenGueltigAb?.$text)
+			}
+			if (bestaetigung.DatenGueltigBis?.$text) {
+				trackLatestDatenGueltigBis(svc, bestaetigung.DatenGueltigBis?.$text)
 			}
 		},
 		onSubscriptionRestored: (service, {aboId, expiresAt}) => {
