@@ -640,7 +640,7 @@ const sendVdv453DataToNats = async (cfg, opt = {}) => {
 				throw new Error(`invalid/unsupported service "${service}"`)
 			}
 
-			return async () => {
+			const subscribeAndRegisterStopTask = async () => {
 				const {
 					startPromise,
 					stopTask,
@@ -648,6 +648,7 @@ const sendVdv453DataToNats = async (cfg, opt = {}) => {
 				stopTasks.push(stopTask)
 				return await startPromise
 			}
+			return subscribeAndRegisterStopTask
 		})
 		.filter(subscribe => subscribe !== null)
 

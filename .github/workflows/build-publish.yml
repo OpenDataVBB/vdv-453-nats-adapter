@@ -42,6 +42,7 @@ jobs:
 
     - name: compute Docker image name
       run: |
+        # lower-case repo name
         echo "DOCKER_IMAGE=ghcr.io/${GITHUB_REPOSITORY,,}" >>${GITHUB_ENV}
       env:
         GITHUB_REPOSITORY: '${{ github.repository }}'
@@ -50,7 +51,6 @@ jobs:
       uses: docker/build-push-action@v5
       with:
         push: true
-        # todo: lower-case repo name
         tags: |
           ${{ env.DOCKER_IMAGE }}:latest
           ${{ env.DOCKER_IMAGE }}:${{ github.ref_name }}
