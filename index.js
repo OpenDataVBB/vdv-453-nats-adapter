@@ -585,16 +585,20 @@ const sendVdv453DataToNats = async (cfg, opt = {}) => {
 		})
 	}
 
-	startCheckingServerStatusPeriodically(
-		SERVICES.AUS,
-		'ausCheckServerStatus',
-		ausCheckServerStatusInterval,
-	)
-	startCheckingServerStatusPeriodically(
-		SERVICES.REF_AUS,
-		'refAusCheckServerStatus',
-		refAusCheckServerStatusInterval,
-	)
+	if (subscriptions.some(({service}) => service === SERVICES.AUS)) {
+		startCheckingServerStatusPeriodically(
+			SERVICES.AUS,
+			'ausCheckServerStatus',
+			ausCheckServerStatusInterval,
+		)
+	}
+	if (subscriptions.some(({service}) => service === SERVICES.REF_AUS)) {
+		startCheckingServerStatusPeriodically(
+			SERVICES.REF_AUS,
+			'refAusCheckServerStatus',
+			refAusCheckServerStatusInterval,
+		)
+	}
 
 	// (re-)create all subscriptions specified by `subscriptions`
 	const subscribe = async () => {
