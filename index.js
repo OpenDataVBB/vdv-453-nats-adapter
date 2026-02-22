@@ -577,7 +577,7 @@ const sendVdv453DataToNats = async (cfg, opt = {}) => {
 				checkTimer = setTimeout(checkAndResetTimer, interval)
 			}
 		}
-		const initialWait = Math.min(Math.max(interval / 30, 2_000), 10_000) // between 2s and 10s
+		const initialWait = Math.min(Math.max(interval / 2, 2_000), 10_000) // between 2s and 10s
 		let checkTimer = setTimeout(checkAndResetTimer, initialWait)
 
 		stopTasks.push(() => {
