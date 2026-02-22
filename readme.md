@@ -88,6 +88,10 @@ REF-AUS-specific Options:
 	                                 Usually, the server should notify the client about new
 	                                 data, but some may not.
 	                                 Default: 300_000 (5m)
+	--ref-aus-check-server-status-interval
+	                                 How often to check the server's REF-AUS service status,
+	                                 in milliseconds.
+	                                 Default: 60_000 (1m)
 AUS-specific Options:
 	--aus-expires                    Set the AUS subscription's expiry date & time. Must be
 	                                 an ISO 8601 date+time string or a UNIX epoch/timestamp.
@@ -97,6 +101,10 @@ AUS-specific Options:
 	                                 Usually, the server should notify the client about new
 	                                 data, but some may not.
 	                                 Default: 30_000 (30s)
+	--aus-check-server-status-interval
+	                                 How often to check the server's AUS service status, in
+	                                 milliseconds.
+	                                 Default: 60_000 (1m)
 Exit Codes:
 	1 – generic and/or unexpected error
 	2 – operation canceled

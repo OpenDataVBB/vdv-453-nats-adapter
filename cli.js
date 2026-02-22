@@ -109,6 +109,10 @@ REF-AUS-specific Options:
 	                                 Usually, the server should notify the client about new
 	                                 data, but some may not.
 	                                 Default: 300_000 (5m)
+	--ref-aus-check-server-status-interval
+	                                 How often to check the server's REF-AUS service status,
+	                                 in milliseconds.
+	                                 Default: 60_000 (1m)
 AUS-specific Options:
 	--aus-expires                    Set the AUS subscription's expiry date & time. Must be
 	                                 an ISO 8601 date+time string or a UNIX epoch/timestamp.
@@ -118,6 +122,10 @@ AUS-specific Options:
 	                                 Usually, the server should notify the client about new
 	                                 data, but some may not.
 	                                 Default: 30_000 (30s)
+	--aus-check-server-status-interval
+	                                 How often to check the server's AUS service status, in
+	                                 milliseconds.
+	                                 Default: 60_000 (1m)
 Exit Codes:
 	1 – generic and/or unexpected error
 	2 – operation canceled
@@ -243,6 +251,12 @@ if ('ref-aus-manual-fetch-interval' in flags) {
 			abortWithError('--ref-aus-manual-fetch-interval must be an integer')
 	}
 }
+if ('ref-aus-check-server-status-interval' in flags) {
+	opt.refAusCheckServerStatusInterval = parseInt(flags['ref-aus-check-server-status-interval'])
+	if (!Number.isInteger(opt.refAusCheckServerStatusInterval)) {
+			abortWithError('--ref-aus-check-server-status-interval must be an integer')
+	}
+}
 
 if ('aus-expires' in flags) {
 	subscriptionOpts[SERVICES.AUS].expires = parseDateTimeFlag(flags['aus-expires'])
@@ -254,6 +268,12 @@ if ('aus-manual-fetch-interval' in flags) {
 	opt.ausManualFetchInterval = parseInt(flags['aus-manual-fetch-interval'])
 	if (!Number.isInteger(opt.ausManualFetchInterval)) {
 			abortWithError('--aus-manual-fetch-interval must be an integer')
+	}
+}
+if ('aus-check-server-status-interval' in flags) {
+	opt.ausCheckServerStatusInterval = parseInt(flags['aus-check-server-status-interval'])
+	if (!Number.isInteger(opt.ausCheckServerStatusInterval)) {
+			abortWithError('--aus-check-server-status-interval must be an integer')
 	}
 }
 
