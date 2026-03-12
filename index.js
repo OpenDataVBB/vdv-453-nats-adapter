@@ -85,6 +85,14 @@ const sendVdv453DataToNats = async (cfg, opt = {}) => {
 			'service', // VDV-453/-454 service, e.g. AUS
 		],
 	})
+	const vdvStatusAnfrageResponseTimeSeconds = new Gauge({
+		name: 'vdv_statusanfrage_response_time_seconds',
+		help: `server's response time on VDV-453 StatusAnfrage requests`,
+		registers: [metricsRegister],
+		labelNames: [
+			'service', // VDV-453/-454 service, e.g. AUS
+		],
+	})
 	// todo: switch back to a regular Gauge but set the measurement timestamp manually, once that's possible again?
 	// see also https://pkg.go.dev/github.com/prometheus/client_golang/prometheus#NewMetricWithTimestamp
 	// see also https://github.com/siimon/prom-client/issues/177
@@ -288,7 +296,7 @@ const sendVdv453DataToNats = async (cfg, opt = {}) => {
 				trackLatestServerZst(clientStatusAnfrage.$?.Zst)
 			}
 		},
-		onStatusAntwort: (svc, statusAntwort) => {
+		onStatusAntwort: (svc, statusAntwort, {timePassed}) => {
 			let ts = statusAntwort.Status?.$?.Zst && Date.parse(statusAntwort.Status?.$?.Zst)
 			if (!Number.isFinite(ts)) {
 				ts = Date.now()
@@ -301,6 +309,9 @@ const sendVdv453DataToNats = async (cfg, opt = {}) => {
 			if (statusAntwort.Status?.$?.Zst) {
 				trackLatestServerZst(statusAntwort.Status?.$?.Zst)
 			}
+			vdvStatusAnfrageResponseTimeSeconds.set({
+				service: svc,
+			}, timePassed / 1000)
 		},
 		onSubscriptionCreated: (svc, {aboId, expiresAt, aboSubTag, aboSubChildren}, bestaetigung, subStats) => {
 			// todo: track even itself?
