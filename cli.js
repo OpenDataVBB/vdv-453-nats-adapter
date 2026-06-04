@@ -252,6 +252,13 @@ if ('vis-manual-fetch-interval' in flags) {
 			abortWithError('--vis-manual-fetch-interval must be an integer')
 	}
 }
+// todo: support it
+// if ('vis-check-server-status-interval' in flags) {
+// 	opt.visCheckServerStatusInterval = parseInt(flags['vis-check-server-status-interval'])
+// 	if (!Number.isInteger(opt.visCheckServerStatusInterval)) {
+// 			abortWithError('--vis-check-server-status-interval must be an integer')
+// 	}
+// }
 
 if ('ref-aus-expires' in flags) {
 	subscriptionOpts[SERVICES.REF_AUS].expires = parseDateTimeFlag(flags['ref-aus-expires'])
@@ -315,6 +322,10 @@ cfg.subscriptions = args.map((serviceArg, i) => {
 	return {
 		...subscriptionOpts[service],
 		service,
+		// todo: remove this!
+		...(service === SERVICES.VIS ? {
+			visIds: ['foo']
+		} : {}),
 	}
 })
 
