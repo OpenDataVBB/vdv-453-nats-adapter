@@ -47,6 +47,12 @@ const {
 		'nats-client-name': {
 			type: 'string',
 		},
+		'vis-expires': {
+			type: 'string',
+		},
+		'vis-manual-fetch-interval': {
+			type: 'string',
+		},
 		'ref-aus-expires': {
 			type: 'string',
 		},
@@ -75,6 +81,8 @@ Usage:
 	send-vdv-453-data-to-nats [options] <service> [<service>...]
 Notes:
 	Valid values for \`service\`:
+	- \`VIS\` subscribes to the VDV-453 VIS service containing realtime vehicle positions.
+		VIS support is currently untested!
 	- \`AUS\` subscribes to the VDV-454 AUS service containing network-wide realtime data.
 	- \`REF_AUS\` subscribes to the VDV-454 REF-AUS service containing network-wide plan data.
 Options:
@@ -96,6 +104,19 @@ Options:
 	                                 Default: $NATS_USER
 	--nats-client-name               Name identifying the NATS client among others.
 	                                 Default: ${NATS_CLIENT_NAME_PREFIX}\${randomHex(4)}
+VIS-specific Options:
+	--vis-expires                    Set the VIS subscription's expiry date & time. Must be
+	                                 an ISO 8601 date+time string or a UNIX epoch/timestamp.
+	                                 Default: now + 1h
+	--vis-manual-fetch-interval      How often to *manually* fetch the data of an VIS
+	                                 subscription, in milliseconds.
+	                                 Usually, the server should notify the client about new
+	                                 data, but some may not.
+	                                 Default: 15_000 (15s)
+	--vis-check-server-status-interval
+	                                 How often to check the server's VIS service status, in
+	                                 milliseconds.
+	                                 Default: 60_000 (1m)
 REF-AUS-specific Options:
 	--ref-aus-expires                Set the REF-AUS subscription's expiry date & time. Must
 	                                 be an ISO 8601 date+time string or a UNIX epoch/timestamp.
@@ -166,20 +187,6 @@ const opt = {
 	natsOpts: {},
 }
 
-const validServices = Object.keys(SERVICES).filter(key => !/^\d+$/.test(key)) // ignore array indices
-if (args.length === 0) {
-	abortWithError('missing service(s)')
-}
-const services = args.map((serviceArg, i) => {
-	if (!serviceArg) {
-		abortWithError(`missing/empty service #${i}`)
-	}
-	if (!validServices.includes(serviceArg)) {
-		abortWithError(`invalid service #${i}, must be one of ${validServices.join(', ')}`)
-	}
-	return SERVICES[serviceArg]
-})
-
 if ('leitstelle' in flags) {
 	cfg.leitstelle = flags.leitstelle
 } else if ('VDV_453_LEITSTELLE' in process.env) {
@@ -233,6 +240,19 @@ const parseDateTimeFlag = (expiresFlag) => {
 	}
 }
 
+if ('vis-expires' in flags) {
+	subscriptionOpts[SERVICES.VIS].expires = parseDateTimeFlag(flags['vis-expires'])
+} else {
+	// now + 1h
+	subscriptionOpts[SERVICES.VIS].expires = (Date.now() / 1000 | 0) + 60 * 60
+}
+if ('vis-manual-fetch-interval' in flags) {
+	opt.visManualFetchInterval = parseInt(flags['vis-manual-fetch-interval'])
+	if (!Number.isInteger(opt.visManualFetchInterval)) {
+			abortWithError('--vis-manual-fetch-interval must be an integer')
+	}
+}
+
 if ('ref-aus-expires' in flags) {
 	subscriptionOpts[SERVICES.REF_AUS].expires = parseDateTimeFlag(flags['ref-aus-expires'])
 } else {
@@ -277,7 +297,21 @@ if ('aus-check-server-status-interval' in flags) {
 	}
 }
 
-cfg.subscriptions = services.map((service) => {
+const validServices = Object.keys(SERVICES).filter(key => !/^\d+$/.test(key)) // ignore array indices
+if (args.length === 0) {
+	abortWithError('missing service(s)')
+}
+cfg.subscriptions = args.map((serviceArg, i) => {
+	if (!serviceArg) {
+		abortWithError(`missing/empty service #${i}`)
+	}
+	if (!validServices.includes(serviceArg)) {
+		abortWithError(`invalid service #${i}, must be one of ${validServices.join(', ')}`)
+	}
+	const service = SERVICES[serviceArg]
+
+	// todo: support reading subscription parameters (e.g. VIS `visIds`) from arguments – JSON?
+
 	return {
 		...subscriptionOpts[service],
 		service,

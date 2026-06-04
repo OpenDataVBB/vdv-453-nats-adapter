@@ -54,6 +54,8 @@ Usage:
 	send-vdv-453-data-to-nats [options] <service> [<service>...]
 Notes:
 	Valid values for `service`:
+	- `VIS` subscribes to the VDV-453 VIS service containing realtime vehicle positions.
+		VIS support is currently untested!
 	- `AUS` subscribes to the VDV-454 AUS service containing network-wide realtime data.
 	- `REF_AUS` subscribes to the VDV-454 REF-AUS service containing network-wide plan data.
 Options:
@@ -75,6 +77,19 @@ Options:
 	                                 Default: $NATS_USER
 	--nats-client-name               Name identifying the NATS client among others.
 	                                 Default: vdv453-2-${randomHex(4)}
+VIS-specific Options:
+	--vis-expires                    Set the VIS subscription's expiry date & time. Must be
+	                                 an ISO 8601 date+time string or a UNIX epoch/timestamp.
+	                                 Default: now + 1h
+	--vis-manual-fetch-interval      How often to *manually* fetch the data of an VIS
+	                                 subscription, in milliseconds.
+	                                 Usually, the server should notify the client about new
+	                                 data, but some may not.
+	                                 Default: 15_000 (15s)
+	--vis-check-server-status-interval
+	                                 How often to check the server's VIS service status, in
+	                                 milliseconds.
+	                                 Default: 60_000 (1m)
 REF-AUS-specific Options:
 	--ref-aus-expires                Set the REF-AUS subscription's expiry date & time. Must
 	                                 be an ISO 8601 date+time string or a UNIX epoch/timestamp.
