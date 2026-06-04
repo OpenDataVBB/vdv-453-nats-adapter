@@ -47,15 +47,19 @@ const sendVdv453DataToNats = async (cfg, opt = {}) => {
 	const {
 		vdv453ClientOpts,
 		natsOpts,
+		visCheckServerStatusInterval,
 		refAusCheckServerStatusInterval,
 		ausCheckServerStatusInterval,
+		visManualFetchInterval,
 		refAusManualFetchInterval,
 		ausManualFetchInterval,
 	} = {
 		vdv453ClientOpts: {},
 		natsOpts: {},
+		visCheckServerStatusInterval: 10 * 1000, // 10 seconds
 		refAusCheckServerStatusInterval: 1 * 60 * 1000, // 1 minute
 		ausCheckServerStatusInterval: 10 * 1000, // 10 seconds
+		visManualFetchInterval: 15 * 1000, // 15 seconds, vdv-453-client's default
 		refAusManualFetchInterval: 5 * 60 * 1000, // 5 minutes, vdv-453-client's default
 		ausManualFetchInterval: 30 * 1000, // 30 seconds, vdv-453-client's default
 		...opt,
@@ -506,6 +510,8 @@ const sendVdv453DataToNats = async (cfg, opt = {}) => {
 		})
 	}
 
+	// todo: send data from VIS events to NATS
+
 	const _subscribe = (subscribeMethod, unsubscribeMethod, ...subscribeArgs) => {
 		let aboId = null
 		// todo: support `expires` value of `'never'`/`Infinity`, re-subscribing continuously?
@@ -610,6 +616,13 @@ const sendVdv453DataToNats = async (cfg, opt = {}) => {
 			refAusCheckServerStatusInterval,
 		)
 	}
+	if (subscriptions.some(({service}) => service === SERVICES.VIS)) {
+		startCheckingServerStatusPeriodically(
+			SERVICES.VIS,
+			'visCheckServerStatus',
+			visCheckServerStatusInterval,
+		)
+	}
 
 	// (re-)create all subscriptions specified by `subscriptions`
 	const subscribe = async () => {
@@ -618,7 +631,7 @@ const sendVdv453DataToNats = async (cfg, opt = {}) => {
 		}, '(re)creating all subscriptions')
 
 		const subscribeFns = subscriptions
-		.map((subscription) => {
+		.map((subscription, subsI) => {
 			const {
 				service,
 				expires,
@@ -649,6 +662,18 @@ const sendVdv453DataToNats = async (cfg, opt = {}) => {
 					return _subscribe('ausSubscribe', 'ausUnsubscribe', {
 						expiresAt: expires * 1000, // vdv-453-client uses milliseconds
 						fetchInterval: ausManualFetchInterval,
+					})
+				}
+			} else if (service === SERVICES.VIS) {
+				const {
+					visIds,
+				} = subscription
+				ok(Array.isArray(visIds), `subscriptions[${subsI}].visIds must be an array`)
+				ok(visIds.length > 0, `subscriptions[${subsI}].visIds must not be empty`)
+				subscribe = () => {
+					return _subscribe('visSubscribe', 'visUnsubscribe', visIds, {
+						expiresAt: expires * 1000, // vdv-453-client uses milliseconds
+						fetchInterval: visManualFetchInterval,
 					})
 				}
 			} else {
